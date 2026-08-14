@@ -52,8 +52,11 @@ export class EncryptionService {
 
     // Derivar clave usando PBKDF2
     const salt = Buffer.from('roundtrip-salt-2026'); // En prod, usar salt aleatorio de Vault
+    // Fallback solo de desarrollo: sin él, pbkdf2Sync(undefined) revienta el
+    // arranque. En producción ya se lanzó el error arriba.
+    const claveDerivable = encryptionKey || 'roundtrip-dev-key-no-usar-en-produccion';
     this.masterKey = crypto.pbkdf2Sync(
-      encryptionKey,
+      claveDerivable,
       salt,
       100000, // Iteraciones (OWASP recommend: 100k+)
       32,     // 256 bits
@@ -133,10 +136,14 @@ export class EncryptionService {
       }
 
       // 6. Desencriptar
-      let decrypted = decipher.update(encrypted, 'binary', 'utf8');
-      decrypted += decipher.final('utf8');
+      // Se trabaja sobre Buffers: `encrypted` ya es binario, y pasarlo como
+      // string con encoding corrompe cualquier byte fuera de ASCII.
+      const decrypted = Buffer.concat([
+        decipher.update(encrypted),
+        decipher.final(),
+      ]);
 
-      return decrypted;
+      return decrypted.toString('utf8');
     } catch (error) {
       logger.error(
         '❌ Error desencriptando (posible tampering detectado):',

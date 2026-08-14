@@ -1,10 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import * as helmet from 'helmet';
-import * as compression from 'compression';
+// Import por defecto (no `* as`): con `esModuleInterop` estos paquetes
+// exportan la función directamente y `* as` deja un namespace no invocable.
+import helmet from 'helmet';
+import compression from 'compression';
 import rateLimit from 'express-rate-limit';
-import mongoSanitize from 'mongo-sanitize';
+// `mongo-sanitize` sanea un valor suelto, no es middleware; el middleware de
+// Express es `express-mongo-sanitize`.
+import mongoSanitize from 'express-mongo-sanitize';
 import { AppModule } from './app.module';
 import { AuditInterceptor } from './common/interceptors/audit.interceptor';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -53,7 +57,7 @@ async function bootstrap() {
     legacyHeaders: false,
     skip: (req) => {
       // Whitelist IPs internas
-      return ['127.0.0.1', '::1'].includes(req.ip);
+      return ['127.0.0.1', '::1'].includes(req.ip ?? '');
     },
   });
 
@@ -131,13 +135,9 @@ async function bootstrap() {
   // ============================================
   // HEALTH CHECK
   // ============================================
-  app.get('/health', (req, res) => {
-    res.json({
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      version: '1.0.0',
-    });
-  });
+  // Lo sirve `HealthController` (/health y /health/ready). Aquí no se puede
+  // registrar la ruta: `app.get(token)` de Nest resuelve un provider del
+  // contenedor, no monta un handler de Express.
 
   // ============================================
   // INICIAR SERVIDOR
