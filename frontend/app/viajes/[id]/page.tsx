@@ -2,9 +2,17 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
+import type { ReactNode } from "react";
 import { useStore } from "@/lib/store";
-import { ESTADOS_VIAJE, margen, vencimientoCobro, type EstadoViaje } from "@/lib/types";
-import { fecha, km, mxn } from "@/lib/format";
+import {
+  ESTADOS_VIAJE,
+  MODALIDAD_LABEL,
+  margen,
+  rutaTexto,
+  vencimientoCobro,
+  type EstadoViaje,
+} from "@/lib/types";
+import { fecha, fechaHora, km, mxn } from "@/lib/format";
 import { Card, PageTitle, Pill } from "@/components/ui";
 import {
   AsignacionBadge,
@@ -12,11 +20,21 @@ import {
   CobroBadge,
   EstadoBadge,
   PagoBadge,
+  TemperaturaBadge,
 } from "@/components/servicios";
 
 export default function DetalleViaje() {
   const params = useParams<{ id: string }>();
-  const { viajes, unidad, operador, proveedor, ejecutor, cambiarEstado } = useStore();
+  const {
+    viajes,
+    unidad,
+    operador,
+    proveedor,
+    ejecutor,
+    nombreDe,
+    esFull,
+    cambiarEstado,
+  } = useStore();
   const viaje = viajes.find((v) => v.id === params.id);
 
   if (!viaje) {
@@ -35,9 +53,7 @@ export default function DetalleViaje() {
   const u = unidad(viaje.unidadId);
   const o = operador(viaje.operadorId);
   const p = proveedor(viaje.proveedorId);
-  const dias =
-    (Date.parse(viaje.retornoEstimado) - Date.parse(viaje.salidaIda)) / 86_400_000 + 1;
-  const ingresoKm = viaje.kmRedondo ? viaje.tarifa / viaje.kmRedondo : 0;
+  const ingresoKm = viaje.km ? viaje.tarifa / viaje.km : 0;
   const m = margen(viaje);
   const pctMargen = viaje.tarifa ? Math.round((m / viaje.tarifa) * 100) : 0;
   const vence = vencimientoCobro(viaje);
@@ -45,8 +61,8 @@ export default function DetalleViaje() {
   return (
     <>
       <PageTitle
-        title={`${viaje.origen} → ${viaje.destino} → ${viaje.origen}`}
-        subtitle={`${viaje.folio} · ${viaje.cliente}`}
+        title={rutaTexto(viaje)}
+        subtitle={`${viaje.folio} · ${viaje.cliente} · Carta porte ${viaje.cartaPorte}`}
         action={
           <Link
             href={viaje.asignacion === "TDC" ? "/asignacion-tdc" : "/asignacion-fwd"}
@@ -62,44 +78,67 @@ export default function DetalleViaje() {
           <div className="mb-4 flex flex-wrap items-center gap-2">
             <h2 className="mr-auto text-sm font-semibold">Detalle del servicio</h2>
             <AsignacionBadge asignacion={viaje.asignacion} />
+            <TemperaturaBadge temperatura={viaje.temperatura} />
             <EstadoBadge estado={viaje.estado} />
           </div>
 
           <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
-            <Dato k="Salida (ida)" v={fecha(viaje.salidaIda)} />
-            <Dato k="Retorno estimado" v={fecha(viaje.retornoEstimado)} />
+            <Dato k="Cliente" v={viaje.cliente} />
+            <Dato k="Origen" v={viaje.origen} />
+            <Dato k="Destino" v={viaje.destino} />
+            <Dato k="Puerto" v={nombreDe("puertos", viaje.puertoId)} />
+            <Dato k="Cita de carga" v={fechaHora(viaje.citaCarga)} />
+            <Dato k="Cita de descarga" v={fechaHora(viaje.citaDescarga)} />
+            <Dato k="Tipo de negocio" v={nombreDe("tiposNegocio", viaje.tipoNegocioId)} />
+            <Dato k="Modalidad" v={`${viaje.modalidad} · ${MODALIDAD_LABEL[viaje.modalidad]}`} />
+            <Dato k="Tipo de unidad" v={nombreDe("tiposUnidad", viaje.tipoUnidadId)} />
+            <Dato k="Tipo de mercancía" v={nombreDe("tiposMercancia", viaje.tipoMercanciaId)} />
+            <Dato k="Contenedor 1" v={viaje.contenedor1 || "—"} />
             <Dato
-              k="Duración"
-              v={Number.isFinite(dias) ? `${Math.max(1, dias)} día(s)` : "—"}
-            />
-            <Dato k="Kilómetros redondos" v={km(viaje.kmRedondo)} />
-            <Dato k="Tarifa al cliente" v={mxn(viaje.tarifa)} />
-            <Dato k="Costo" v={mxn(viaje.costo)} />
-            <Dato
-              k="Margen"
+              k="Contenedor 2"
               v={
-                <span className={m < 0 ? "text-rose-700" : undefined}>
-                  {mxn(m)} ({pctMargen}%)
-                </span>
+                esFull(viaje.tipoUnidadId)
+                  ? viaje.contenedor2 || "—"
+                  : "No aplica"
               }
             />
-            <Dato
-              k="Ingreso por km"
-              v={ingresoKm ? `${mxn(Math.round(ingresoKm))}/km` : "—"}
-            />
-            <Dato k="Ejecuta" v={ejecutor(viaje)} />
-            {viaje.asignacion === "TDC" ? (
-              <>
-                <Dato k="Unidad" v={u ? `${u.economico} · ${u.placas}` : "Sin asignar"} />
-                <Dato k="Operador" v={o ? `${o.nombre} · ${o.telefono}` : "Sin asignar"} />
-              </>
-            ) : (
-              <>
-                <Dato k="Proveedor" v={p?.nombre ?? "Sin proveedor"} />
-                <Dato k="Contacto" v={p?.contacto ?? "—"} />
-              </>
-            )}
+            <Dato k="Booking" v={viaje.booking || "—"} />
+            <Dato k="PO" v={viaje.po || "—"} />
+            <Dato k="Carta porte" v={viaje.cartaPorte} />
           </dl>
+
+          <div className="mt-6 border-t border-line pt-4">
+            <h3 className="mb-3 text-sm font-semibold">Operación y tarifa</h3>
+            <dl className="grid grid-cols-2 gap-4 text-sm sm:grid-cols-3">
+              <Dato k="Kilómetros" v={km(viaje.km)} />
+              <Dato k="Tarifa al cliente" v={mxn(viaje.tarifa)} />
+              <Dato k="Costo" v={mxn(viaje.costo)} />
+              <Dato
+                k="Margen"
+                v={
+                  <span className={m < 0 ? "text-rose-700" : undefined}>
+                    {mxn(m)} ({pctMargen}%)
+                  </span>
+                }
+              />
+              <Dato
+                k="Ingreso por km"
+                v={ingresoKm ? `${mxn(Math.round(ingresoKm))}/km` : "—"}
+              />
+              <Dato k="Ejecuta" v={ejecutor(viaje)} />
+              {viaje.asignacion === "TDC" ? (
+                <>
+                  <Dato k="Unidad" v={u ? `${u.economico} · ${u.placas}` : "Sin asignar"} />
+                  <Dato k="Operador" v={o ? `${o.nombre} · ${o.telefono}` : "Sin asignar"} />
+                </>
+              ) : (
+                <>
+                  <Dato k="Proveedor" v={p?.nombre ?? "Sin proveedor"} />
+                  <Dato k="Contacto" v={p?.contacto ?? "—"} />
+                </>
+              )}
+            </dl>
+          </div>
 
           {viaje.notas ? (
             <p className="mt-5 rounded-md bg-black/[0.03] px-3 py-2 text-sm text-muted">
@@ -181,7 +220,7 @@ export default function DetalleViaje() {
   );
 }
 
-function Dato({ k, v }: { k: string; v: React.ReactNode }) {
+function Dato({ k, v }: { k: string; v: ReactNode }) {
   return (
     <div>
       <dt className="text-xs uppercase tracking-wide text-muted">{k}</dt>

@@ -16,6 +16,12 @@ export type EstadoViaje =
  */
 export type Asignacion = "TDC" | "FWD";
 
+/** One way (solo ida) o round trip (ida y vuelta). */
+export type Modalidad = "OW" | "RT";
+
+/** Refrigerado o seco. */
+export type Temperatura = "RF" | "SECO";
+
 export type EstadoCobro = "pendiente" | "facturado" | "cobrado" | "vencido";
 export type EstadoPago = "pendiente" | "autorizado" | "pagado";
 export type EstadoLiquidacion = "pendiente" | "liquidado";
@@ -26,13 +32,20 @@ export type EstadoOperador = "disponible" | "en_viaje" | "descanso";
 export type Viaje = {
   id: string;
   folio: string;
+  /** Folio de carta porte, asignado automáticamente al guardar. */
+  cartaPorte: string;
+
+  clienteId: string;
+  /** Nombre del cliente al momento del alta; sobrevive a cambios del catálogo. */
   cliente: string;
+
   origen: string;
   destino: string;
-  salidaIda: string; // YYYY-MM-DD
-  retornoEstimado: string; // YYYY-MM-DD
-  estado: EstadoViaje;
-  kmRedondo: number;
+  puertoId: string;
+
+  /** Citas con fecha y hora, en ISO local (YYYY-MM-DDTHH:mm). */
+  citaCarga: string;
+  citaDescarga: string;
 
   asignacion: Asignacion;
   /** Solo TDC: unidad y operador propios. */
@@ -41,7 +54,23 @@ export type Viaje = {
   /** Solo FWD: proveedor que ejecuta el servicio. */
   proveedorId: string;
 
-  /** Lo que se le cobra al cliente por el viaje redondo (MXN). */
+  tipoNegocioId: string;
+  temperatura: Temperatura;
+  modalidad: Modalidad;
+  tipoUnidadId: string;
+  tipoMercanciaId: string;
+
+  contenedor1: string;
+  /** Solo si el tipo de unidad es full. */
+  contenedor2: string;
+
+  booking: string;
+  po: string;
+
+  estado: EstadoViaje;
+  km: number;
+
+  /** Lo que se le cobra al cliente (MXN). */
   tarifa: number;
   /** Lo que cuesta ejecutarlo: al proveedor en FWD, operativo en TDC. */
   costo: number;
@@ -82,6 +111,7 @@ export type Unidad = {
   tipo: string;
   capacidadTon: number;
   estado: EstadoUnidad;
+  activo: boolean;
 };
 
 export type Operador = {
@@ -90,6 +120,7 @@ export type Operador = {
   licencia: string;
   telefono: string;
   estado: EstadoOperador;
+  activo: boolean;
 };
 
 export type Proveedor = {
@@ -98,6 +129,7 @@ export type Proveedor = {
   tipo: "transportista" | "agente_aduanal" | "almacen";
   diasPago: number;
   contacto: string;
+  activo: boolean;
 };
 
 export const ESTADOS_VIAJE: { value: EstadoViaje; label: string }[] = [
@@ -159,6 +191,21 @@ export const ASIGNACION_CLASS: Record<Asignacion, string> = {
   FWD: "bg-indigo-50 text-indigo-700 ring-indigo-200",
 };
 
+export const MODALIDAD_LABEL: Record<Modalidad, string> = {
+  OW: "One way",
+  RT: "Round trip",
+};
+
+export const TEMPERATURA_LABEL: Record<Temperatura, string> = {
+  RF: "Refrigerado",
+  SECO: "Seco",
+};
+
+export const TEMPERATURA_CLASS: Record<Temperatura, string> = {
+  RF: "bg-sky-50 text-sky-700 ring-sky-200",
+  SECO: "bg-stone-100 text-stone-700 ring-stone-200",
+};
+
 /** Estados en los que el servicio sigue vivo en la operación. */
 export const VIAJE_ACTIVO: EstadoViaje[] = [
   "programado",
@@ -183,4 +230,16 @@ export function vencimientoCobro(v: Viaje): string | null {
 /** Margen del servicio: lo que queda después de pagar la ejecución. */
 export function margen(v: Viaje): number {
   return v.tarifa - v.costo;
+}
+
+/** En round trip la unidad regresa al origen; en one way, no. */
+export function rutaTexto(v: Viaje): string {
+  return v.modalidad === "RT"
+    ? `${v.origen} → ${v.destino} → ${v.origen}`
+    : `${v.origen} → ${v.destino}`;
+}
+
+/** Fecha de referencia del servicio para ordenar y agrupar. */
+export function fechaServicio(v: Viaje): string {
+  return v.citaCarga.slice(0, 10);
 }

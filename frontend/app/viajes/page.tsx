@@ -30,7 +30,7 @@ export default function Viajes() {
   const filtrados = viajes
     .filter((v) => (estado === "todos" ? true : v.estado === estado))
     .filter((v) => (asignacion === "todas" ? true : v.asignacion === asignacion))
-    .sort((a, b) => b.salidaIda.localeCompare(a.salidaIda));
+    .sort((a, b) => b.citaCarga.localeCompare(a.citaCarga));
 
   const columnaAsignacion: Columna = {
     clave: "asignacion",

@@ -26,7 +26,7 @@ export default function AsignacionTDC() {
 
   const propios = viajes
     .filter((v) => v.asignacion === "TDC")
-    .sort((a, b) => b.salidaIda.localeCompare(a.salidaIda));
+    .sort((a, b) => b.citaCarga.localeCompare(a.citaCarga));
 
   const columnaUnidad: Columna = {
     clave: "unidad",

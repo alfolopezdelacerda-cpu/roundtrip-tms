@@ -28,7 +28,7 @@ export default function AsignacionFWD() {
 
   const externos = viajes
     .filter((v) => v.asignacion === "FWD")
-    .sort((a, b) => b.salidaIda.localeCompare(a.salidaIda));
+    .sort((a, b) => b.citaCarga.localeCompare(a.citaCarga));
 
   const columnaProveedor: Columna = {
     clave: "proveedor",

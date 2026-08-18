@@ -15,7 +15,7 @@ import {
   columnaTarifa,
   type Columna,
 } from "@/components/servicios";
-import { fecha, mxn } from "@/lib/format";
+import { fecha, fechaHora, mxn } from "@/lib/format";
 import { esLiquidable, margen } from "@/lib/types";
 
 /**
@@ -33,7 +33,7 @@ export default function Liquidacion() {
   const finalizados = viajes
     .filter((v) => v.estado === "completado")
     .filter((v) => (verLiquidados ? true : esLiquidable(v)))
-    .sort((a, b) => b.retornoEstimado.localeCompare(a.retornoEstimado));
+    .sort((a, b) => b.citaDescarga.localeCompare(a.citaDescarga));
 
   const pendientes = viajes.filter(esLiquidable);
   const importePendiente = pendientes.reduce((s, v) => s + v.costo, 0);
@@ -56,7 +56,7 @@ export default function Liquidacion() {
   const columnaCierre: Columna = {
     clave: "cierre",
     titulo: "Cierre",
-    celda: (v) => <span className="text-muted">{fecha(v.retornoEstimado)}</span>,
+    celda: (v) => <span className="text-muted">{fechaHora(v.citaDescarga)}</span>,
   };
 
   const columnaCosto: Columna = {

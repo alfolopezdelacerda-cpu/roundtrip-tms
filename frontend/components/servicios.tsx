@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState, type ReactNode } from "react";
-import { fecha, km, mxn } from "@/lib/format";
+import { fechaHora, km, mxn } from "@/lib/format";
 import {
   ASIGNACION_CLASS,
   ASIGNACION_LABEL,
@@ -12,11 +12,15 @@ import {
   ESTADO_LABEL,
   PAGO_CLASS,
   PAGO_LABEL,
+  TEMPERATURA_CLASS,
+  TEMPERATURA_LABEL,
   margen,
+  rutaTexto,
   type Asignacion,
   type EstadoCobro,
   type EstadoPago,
   type EstadoViaje,
+  type Temperatura,
   type Viaje,
 } from "@/lib/types";
 import { Card, Empty } from "./ui";
@@ -51,12 +55,21 @@ function Badge({ children, className }: { children: ReactNode; className: string
   );
 }
 
-/** Ruta redonda en una línea: origen → destino → origen. */
+/** En round trip la unidad vuelve al origen; en one way, no. */
 export function Ruta({ viaje }: { viaje: Viaje }) {
   return (
-    <span className="font-medium">
-      {viaje.origen} → {viaje.destino} → {viaje.origen}
+    <span className="whitespace-nowrap font-medium">
+      {rutaTexto(viaje)}{" "}
+      <span className="text-xs font-normal text-muted">({viaje.modalidad})</span>
     </span>
+  );
+}
+
+export function TemperaturaBadge({ temperatura }: { temperatura: Temperatura }) {
+  return (
+    <Badge className={TEMPERATURA_CLASS[temperatura]}>
+      {TEMPERATURA_LABEL[temperatura]}
+    </Badge>
   );
 }
 
@@ -180,8 +193,14 @@ export const columnaFolio: Columna = {
 
 export const columnaRuta: Columna = {
   clave: "ruta",
-  titulo: "Ruta redonda",
+  titulo: "Ruta",
   celda: (v) => <Ruta viaje={v} />,
+};
+
+export const columnaCartaPorte: Columna = {
+  clave: "cartaPorte",
+  titulo: "Carta porte",
+  celda: (v) => <span className="font-mono text-xs text-muted">{v.cartaPorte}</span>,
 };
 
 export const columnaCliente: Columna = {
@@ -193,14 +212,14 @@ export const columnaCliente: Columna = {
 export const columnaSalida: Columna = {
   clave: "salida",
   titulo: "Salida",
-  celda: (v) => <span className="text-muted">{fecha(v.salidaIda)}</span>,
+  celda: (v) => <span className="text-muted">{fechaHora(v.citaCarga)}</span>,
 };
 
 export const columnaKm: Columna = {
   clave: "km",
   titulo: "Km",
   alineacion: "der",
-  celda: (v) => km(v.kmRedondo),
+  celda: (v) => km(v.km),
 };
 
 export const columnaTarifa: Columna = {

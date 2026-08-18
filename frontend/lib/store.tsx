@@ -8,12 +8,18 @@ import {
   useMemo,
   useState,
 } from "react";
+import { operadoresSeed, proveedoresSeed, unidadesSeed, viajesSeed } from "./seed";
 import {
-  operadoresSeed,
-  proveedoresSeed,
-  unidadesSeed,
-  viajesSeed,
-} from "./seed";
+  clientesSeed,
+  puertosSeed,
+  tiposMercanciaSeed,
+  tiposNegocioSeed,
+  tiposUnidadSeed,
+  type ClaveCatalogo,
+  type Cliente,
+  type ItemCatalogo,
+  type TipoUnidad,
+} from "./catalogos";
 import type {
   EstadoViaje,
   Operador,
@@ -22,39 +28,84 @@ import type {
   Viaje,
 } from "./types";
 
-// Se versiona la clave: el modelo cambió (asignación, cobro, pago,
-// liquidación) y los datos guardados con el esquema viejo ya no encajan.
-const STORAGE_KEY = "roundtrip-tms:v2";
+// Se versiona la clave en cada cambio de esquema: los datos guardados con el
+// modelo anterior ya no encajan y es preferible partir del seed nuevo.
+const STORAGE_KEY = "roundtrip-tms:v3";
 
 type Data = {
   viajes: Viaje[];
+  clientes: Cliente[];
+  proveedores: Proveedor[];
   unidades: Unidad[];
   operadores: Operador[];
-  proveedores: Proveedor[];
+  puertos: ItemCatalogo[];
+  tiposNegocio: ItemCatalogo[];
+  tiposUnidad: TipoUnidad[];
+  tiposMercancia: ItemCatalogo[];
 };
+
+/** Cualquier registro de catálogo: todos comparten id y nombre. */
+type RegistroCatalogo = { id: string; nombre?: string; activo: boolean } & Record<
+  string,
+  unknown
+>;
 
 type Store = Data & {
   hidratado: boolean;
-  agregarViaje: (v: Omit<Viaje, "id" | "folio">) => Viaje;
+
+  agregarViaje: (v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => Viaje;
   cambiarEstado: (id: string, estado: EstadoViaje) => void;
   facturar: (id: string, factura: string, fechaFactura: string) => void;
   marcarCobrado: (id: string) => void;
   autorizarPago: (id: string) => void;
   marcarPagado: (id: string, referencia: string) => void;
   liquidar: (id: string) => void;
+
+  agregarCatalogo: (clave: ClaveCatalogo, item: Record<string, unknown>) => void;
+  actualizarCatalogo: (
+    clave: ClaveCatalogo,
+    id: string,
+    cambios: Record<string, unknown>,
+  ) => void;
+  eliminarCatalogo: (clave: ClaveCatalogo, id: string) => void;
+  /** Cuántos servicios usan un registro de catálogo (para no borrar a ciegas). */
+  usosDeCatalogo: (clave: ClaveCatalogo, id: string) => number;
+
   unidad: (id: string) => Unidad | undefined;
   operador: (id: string) => Operador | undefined;
   proveedor: (id: string) => Proveedor | undefined;
+  /** Nombre de un registro de catálogo, o "—" si ya no existe. */
+  nombreDe: (clave: ClaveCatalogo, id: string) => string;
   /** Nombre de quien ejecuta el servicio: operador propio o proveedor. */
   ejecutor: (v: Viaje) => string;
+  /** Si el tipo de unidad del servicio admite un segundo contenedor. */
+  esFull: (tipoUnidadId: string) => boolean;
+
   reiniciar: () => void;
 };
 
 const seed: Data = {
   viajes: viajesSeed,
+  clientes: clientesSeed,
+  proveedores: proveedoresSeed,
   unidades: unidadesSeed,
   operadores: operadoresSeed,
-  proveedores: proveedoresSeed,
+  puertos: puertosSeed,
+  tiposNegocio: tiposNegocioSeed,
+  tiposUnidad: tiposUnidadSeed,
+  tiposMercancia: tiposMercanciaSeed,
+};
+
+/** Campo de cada servicio que apunta a un catálogo, para contar usos. */
+const CAMPO_DE_CATALOGO: Record<ClaveCatalogo, keyof Viaje> = {
+  clientes: "clienteId",
+  proveedores: "proveedorId",
+  unidades: "unidadId",
+  operadores: "operadorId",
+  puertos: "puertoId",
+  tiposNegocio: "tipoNegocioId",
+  tiposUnidad: "tipoUnidadId",
+  tiposMercancia: "tipoMercanciaId",
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -66,7 +117,11 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) setData(JSON.parse(raw) as Data);
+      if (raw) {
+        // Se fusiona con el seed para que una versión guardada sin algún
+        // catálogo nuevo no deje la pantalla en blanco.
+        setData({ ...seed, ...(JSON.parse(raw) as Partial<Data>) });
+      }
     } catch {
       // almacenamiento no disponible: se sigue con los datos demo
     }
@@ -82,7 +137,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [data, hidratado]);
 
-  /** Aplica un cambio a un solo viaje sin tocar el resto del estado. */
   const actualizar = useCallback((id: string, cambio: (v: Viaje) => Viaje) => {
     setData((prev) => ({
       ...prev,
@@ -90,14 +144,18 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }));
   }, []);
 
-  const agregarViaje = useCallback((v: Omit<Viaje, "id" | "folio">) => {
-    const creado: Viaje = { ...v, id: `v${Date.now()}`, folio: "" };
+  const agregarViaje = useCallback((v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => {
+    const creado = { ...v, id: `v${Date.now()}`, folio: "", cartaPorte: "" } as Viaje;
     setData((prev) => {
-      const max = prev.viajes.reduce((m, x) => {
-        const n = Number(x.folio.replace(/\D/g, ""));
-        return Number.isFinite(n) && n > m ? n : m;
-      }, 2600);
-      creado.folio = `RT-${max + 1}`;
+      // Folio y carta porte se derivan del consecutivo más alto ya existente.
+      const consecutivo =
+        prev.viajes.reduce((m, x) => {
+          const n = Number(x.folio.replace(/\D/g, ""));
+          return Number.isFinite(n) && n > m ? n : m;
+        }, 2600) + 1;
+
+      creado.folio = `RT-${consecutivo}`;
+      creado.cartaPorte = `CP-${new Date().getFullYear()}-${consecutivo}`;
       return { ...prev, viajes: [creado, ...prev.viajes] };
     });
     return creado;
@@ -108,7 +166,6 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       actualizar(id, (v) => ({
         ...v,
         estado,
-        // Cerrar el servicio implica avance completo; cancelarlo lo congela.
         monitoreo: {
           ...v.monitoreo,
           avance: estado === "completado" ? 100 : v.monitoreo.avance,
@@ -164,12 +221,58 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     [actualizar],
   );
 
+  // ---- Catálogos ----
+
+  const agregarCatalogo = useCallback(
+    (clave: ClaveCatalogo, item: Record<string, unknown>) =>
+      setData((prev) => {
+        const lista = prev[clave] as RegistroCatalogo[];
+        const nuevo = {
+          ...item,
+          id: `${clave.slice(0, 2)}${Date.now()}`,
+          activo: true,
+        } as RegistroCatalogo;
+        return { ...prev, [clave]: [...lista, nuevo] };
+      }),
+    [],
+  );
+
+  const actualizarCatalogo = useCallback(
+    (clave: ClaveCatalogo, id: string, cambios: Record<string, unknown>) =>
+      setData((prev) => {
+        const lista = prev[clave] as RegistroCatalogo[];
+        return {
+          ...prev,
+          [clave]: lista.map((i) => (i.id === id ? { ...i, ...cambios } : i)),
+        };
+      }),
+    [],
+  );
+
+  const eliminarCatalogo = useCallback(
+    (clave: ClaveCatalogo, id: string) =>
+      setData((prev) => {
+        const lista = prev[clave] as RegistroCatalogo[];
+        return { ...prev, [clave]: lista.filter((i) => i.id !== id) };
+      }),
+    [],
+  );
+
   const reiniciar = useCallback(() => setData(seed), []);
 
   const value = useMemo<Store>(() => {
     const unidad = (id: string) => data.unidades.find((u) => u.id === id);
     const operador = (id: string) => data.operadores.find((o) => o.id === id);
     const proveedor = (id: string) => data.proveedores.find((p) => p.id === id);
+
+    const nombreDe = (clave: ClaveCatalogo, id: string) => {
+      const lista = data[clave] as RegistroCatalogo[];
+      const item = lista.find((i) => i.id === id);
+      if (!item) return "—";
+      // Unidades y operadores no tienen `nombre`: se identifican distinto.
+      if (clave === "unidades") return (item as unknown as Unidad).economico;
+      return (item.nombre as string) ?? "—";
+    };
 
     return {
       ...data,
@@ -181,14 +284,24 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       autorizarPago,
       marcarPagado,
       liquidar,
-      reiniciar,
+      agregarCatalogo,
+      actualizarCatalogo,
+      eliminarCatalogo,
+      usosDeCatalogo: (clave, id) => {
+        const campo = CAMPO_DE_CATALOGO[clave];
+        return data.viajes.filter((v) => v[campo] === id).length;
+      },
       unidad,
       operador,
       proveedor,
+      nombreDe,
       ejecutor: (v: Viaje) =>
         v.asignacion === "TDC"
           ? (operador(v.operadorId)?.nombre ?? "Sin asignar")
           : (proveedor(v.proveedorId)?.nombre ?? "Sin proveedor"),
+      esFull: (tipoUnidadId: string) =>
+        data.tiposUnidad.find((t) => t.id === tipoUnidadId)?.full ?? false,
+      reiniciar,
     };
   }, [
     data,
@@ -200,6 +313,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     autorizarPago,
     marcarPagado,
     liquidar,
+    agregarCatalogo,
+    actualizarCatalogo,
+    eliminarCatalogo,
     reiniciar,
   ]);
 

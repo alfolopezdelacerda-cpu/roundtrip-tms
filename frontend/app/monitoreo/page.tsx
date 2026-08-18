@@ -10,7 +10,7 @@ import {
   FolioLink,
   Ruta,
 } from "@/components/servicios";
-import { fecha } from "@/lib/format";
+import { fechaHora } from "@/lib/format";
 import { VIAJE_ACTIVO, type Asignacion } from "@/lib/types";
 
 /**
@@ -91,7 +91,7 @@ export default function Monitoreo() {
               <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                 <Dato k="Ubicación" v={v.monitoreo.ubicacion} />
                 <Dato k="Ejecuta" v={ejecutor(v)} />
-                <Dato k="Retorno estimado" v={fecha(v.retornoEstimado)} />
+                <Dato k="Cita de descarga" v={fechaHora(v.citaDescarga)} />
                 <Dato
                   k="Actualizado"
                   v={new Date(v.monitoreo.actualizado).toLocaleString("es-MX", {
