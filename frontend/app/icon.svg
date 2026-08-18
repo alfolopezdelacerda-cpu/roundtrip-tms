@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <rect width="32" height="32" rx="7" fill="#232A2E"/>
+  <!-- Flecha de ida y vuelta: el viaje redondo. -->
+  <path d="M9 12h11a4 4 0 0 1 0 8h-6" fill="none" stroke="#C97A0F" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M12 17l-3 3 3 3" fill="none" stroke="#C97A0F" stroke-width="2.5"
+        stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="9" cy="12" r="2.5" fill="#F2F3EF"/>
+</svg>

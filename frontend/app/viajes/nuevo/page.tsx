@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { ESTADOS_VIAJE, type EstadoViaje } from "@/lib/types";
+import { ESTADOS_VIAJE, type Asignacion, type EstadoViaje } from "@/lib/types";
 import { Card, PageTitle } from "@/components/ui";
 
 const campo =
@@ -12,7 +12,7 @@ const etiqueta = "mb-1 block text-xs font-medium uppercase tracking-wide text-mu
 
 export default function NuevoViaje() {
   const router = useRouter();
-  const { unidades, operadores, agregarViaje } = useStore();
+  const { unidades, operadores, proveedores, agregarViaje } = useStore();
 
   const [form, setForm] = useState({
     cliente: "",
@@ -20,11 +20,15 @@ export default function NuevoViaje() {
     destino: "",
     salidaIda: "",
     retornoEstimado: "",
+    asignacion: "TDC" as Asignacion,
     unidadId: "",
     operadorId: "",
+    proveedorId: "",
     estado: "programado" as EstadoViaje,
     kmRedondo: "",
     tarifa: "",
+    costo: "",
+    diasCredito: "30",
     notas: "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -32,39 +36,63 @@ export default function NuevoViaje() {
   const set = (k: keyof typeof form) => (v: string) =>
     setForm((f) => ({ ...f, [k]: v }) as typeof form);
 
+  const esTDC = form.asignacion === "TDC";
+
   function guardar(e: React.FormEvent) {
     e.preventDefault();
+
     if (!form.cliente || !form.origen || !form.destino || !form.salidaIda) {
       setError("Cliente, origen, destino y fecha de salida son obligatorios.");
       return;
     }
-    if (
-      form.retornoEstimado &&
-      form.retornoEstimado < form.salidaIda
-    ) {
+    if (form.retornoEstimado && form.retornoEstimado < form.salidaIda) {
       setError("El retorno no puede ser anterior a la salida.");
       return;
     }
+    if (!esTDC && !form.proveedorId) {
+      setError("Un servicio FWD necesita proveedor asignado.");
+      return;
+    }
+
     const creado = agregarViaje({
       cliente: form.cliente.trim(),
       origen: form.origen.trim(),
       destino: form.destino.trim(),
       salidaIda: form.salidaIda,
       retornoEstimado: form.retornoEstimado || form.salidaIda,
-      unidadId: form.unidadId,
-      operadorId: form.operadorId,
       estado: form.estado,
       kmRedondo: Number(form.kmRedondo) || 0,
+      asignacion: form.asignacion,
+      // Los campos de la otra vía se guardan vacíos, no con datos huérfanos.
+      unidadId: esTDC ? form.unidadId : "",
+      operadorId: esTDC ? form.operadorId : "",
+      proveedorId: esTDC ? "" : form.proveedorId,
       tarifa: Number(form.tarifa) || 0,
+      costo: Number(form.costo) || 0,
+      cobro: {
+        estado: "pendiente",
+        factura: null,
+        fechaFactura: null,
+        diasCredito: Number(form.diasCredito) || 30,
+      },
+      pago: { estado: "pendiente", referencia: null, fechaPago: null },
+      liquidacion: { estado: "pendiente", fecha: null },
+      monitoreo: {
+        avance: 0,
+        ubicacion: form.origen.trim(),
+        ultimoEvento: "Servicio dado de alta",
+        actualizado: new Date().toISOString(),
+      },
       notas: form.notas.trim() || undefined,
     });
+
     router.push(`/viajes/${creado.id}`);
   }
 
   return (
     <>
       <PageTitle
-        title="Nuevo viaje redondo"
+        title="Nuevo Viaje"
         subtitle="El folio se asigna automáticamente al guardar."
       />
 
@@ -118,38 +146,80 @@ export default function NuevoViaje() {
             />
           </div>
 
-          <div>
-            <label className={etiqueta}>Unidad</label>
-            <select
-              className={campo}
-              value={form.unidadId}
-              onChange={(e) => set("unidadId")(e.target.value)}
-            >
-              <option value="">Sin asignar</option>
-              {unidades.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.economico} — {u.tipo}
-                  {u.estado === "disponible" ? "" : ` (${u.estado})`}
-                </option>
+          {/* La asignación decide el resto del flujo: liquidación al operador
+              (TDC) o cuenta por pagar al proveedor (FWD). */}
+          <div className="sm:col-span-2">
+            <label className={etiqueta}>Asignación *</label>
+            <div className="flex flex-wrap gap-2">
+              {(["TDC", "FWD"] as const).map((op) => (
+                <button
+                  key={op}
+                  type="button"
+                  onClick={() => set("asignacion")(op)}
+                  className={`rounded-md px-3 py-2 text-sm ring-1 ring-inset transition-colors ${
+                    form.asignacion === op
+                      ? "bg-ink text-white ring-transparent"
+                      : "bg-white ring-[#DEE3DD] hover:bg-black/[0.03]"
+                  }`}
+                >
+                  {op === "TDC" ? "TDC · Transportadora" : "FWD · Proveedor externo"}
+                </button>
               ))}
-            </select>
+            </div>
           </div>
-          <div>
-            <label className={etiqueta}>Operador</label>
-            <select
-              className={campo}
-              value={form.operadorId}
-              onChange={(e) => set("operadorId")(e.target.value)}
-            >
-              <option value="">Sin asignar</option>
-              {operadores.map((o) => (
-                <option key={o.id} value={o.id}>
-                  {o.nombre}
-                  {o.estado === "disponible" ? "" : ` (${o.estado})`}
-                </option>
-              ))}
-            </select>
-          </div>
+
+          {esTDC ? (
+            <>
+              <div>
+                <label className={etiqueta}>Unidad</label>
+                <select
+                  className={campo}
+                  value={form.unidadId}
+                  onChange={(e) => set("unidadId")(e.target.value)}
+                >
+                  <option value="">Sin asignar</option>
+                  {unidades.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.economico} — {u.tipo}
+                      {u.estado === "disponible" ? "" : ` (${u.estado})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className={etiqueta}>Operador</label>
+                <select
+                  className={campo}
+                  value={form.operadorId}
+                  onChange={(e) => set("operadorId")(e.target.value)}
+                >
+                  <option value="">Sin asignar</option>
+                  {operadores.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.nombre}
+                      {o.estado === "disponible" ? "" : ` (${o.estado})`}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </>
+          ) : (
+            <div className="sm:col-span-2">
+              <label className={etiqueta}>Proveedor *</label>
+              <select
+                className={campo}
+                value={form.proveedorId}
+                onChange={(e) => set("proveedorId")(e.target.value)}
+              >
+                <option value="">Seleccionar proveedor</option>
+                {proveedores.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.nombre} — {p.tipo.replace("_", " ")} ({p.diasPago} días)
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label className={etiqueta}>Kilómetros (redondo)</label>
@@ -163,7 +233,18 @@ export default function NuevoViaje() {
             />
           </div>
           <div>
-            <label className={etiqueta}>Tarifa MXN (redondo)</label>
+            <label className={etiqueta}>Días de crédito</label>
+            <input
+              type="number"
+              min={0}
+              className={campo}
+              value={form.diasCredito}
+              onChange={(e) => set("diasCredito")(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className={etiqueta}>Tarifa al cliente (MXN)</label>
             <input
               type="number"
               min={0}
@@ -171,6 +252,19 @@ export default function NuevoViaje() {
               value={form.tarifa}
               onChange={(e) => set("tarifa")(e.target.value)}
               placeholder="48500"
+            />
+          </div>
+          <div>
+            <label className={etiqueta}>
+              {esTDC ? "Costo operativo (MXN)" : "Costo del proveedor (MXN)"}
+            </label>
+            <input
+              type="number"
+              min={0}
+              className={campo}
+              value={form.costo}
+              onChange={(e) => set("costo")(e.target.value)}
+              placeholder="31400"
             />
           </div>
 

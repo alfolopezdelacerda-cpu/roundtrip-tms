@@ -3,11 +3,19 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
+/**
+ * Menú principal, en el orden del flujo operativo: se da de alta el servicio,
+ * se asigna (a la transportadora o a un proveedor), se monitorea y al cerrar
+ * pasa a cobranza, pago y liquidación.
+ */
 const links = [
-  { href: "/", label: "Tablero" },
-  { href: "/viajes", label: "Viajes" },
-  { href: "/unidades", label: "Unidades" },
-  { href: "/operadores", label: "Operadores" },
+  { href: "/viajes/nuevo", label: "Nuevo Viaje" },
+  { href: "/asignacion-tdc", label: "Asignación TDC" },
+  { href: "/asignacion-fwd", label: "Asignación FWD" },
+  { href: "/monitoreo", label: "Monitoreo" },
+  { href: "/cxc", label: "CXC" },
+  { href: "/cxp", label: "CXP" },
+  { href: "/liquidacion", label: "Liquidación" },
 ];
 
 export function Nav() {
@@ -15,14 +23,18 @@ export function Nav() {
 
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-ink text-[#F2F3EF]">
-      <div className="flex flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 sm:px-6">
-        <Link href="/" className="text-sm font-semibold tracking-tight">
+      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 sm:px-6">
+        <Link
+          href="/"
+          className="text-sm font-semibold tracking-tight"
+          title="Tablero"
+        >
           Roundtrip <span className="text-amber">TMS</span>
         </Link>
-        <nav className="flex items-center gap-1 text-sm">
+
+        <nav className="flex flex-wrap items-center gap-1 text-sm">
           {links.map((l) => {
-            const activo =
-              l.href === "/" ? pathname === "/" : pathname.startsWith(l.href);
+            const activo = pathname.startsWith(l.href);
             return (
               <Link
                 key={l.href}
@@ -38,12 +50,6 @@ export function Nav() {
             );
           })}
         </nav>
-        <Link
-          href="/viajes/nuevo"
-          className="ml-auto rounded-md bg-amber px-3 py-1.5 text-sm font-medium text-white hover:opacity-90"
-        >
-          Nuevo viaje
-        </Link>
       </div>
     </header>
   );

@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { ESTADO_CLASS, ESTADO_LABEL, type EstadoViaje } from "@/lib/types";
 
 export function Card({
   children,
@@ -59,15 +58,8 @@ export function Kpi({
   );
 }
 
-export function EstadoBadge({ estado }: { estado: EstadoViaje }) {
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${ESTADO_CLASS[estado]}`}
-    >
-      {ESTADO_LABEL[estado]}
-    </span>
-  );
-}
+// Las insignias de estado viven en `components/servicios.tsx`, junto al resto
+// de piezas que dependen del modelo de servicio.
 
 export function Pill({ children }: { children: ReactNode }) {
   return (

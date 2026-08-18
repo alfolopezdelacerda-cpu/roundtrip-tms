@@ -8,19 +8,45 @@ import {
   useMemo,
   useState,
 } from "react";
-import { operadoresSeed, unidadesSeed, viajesSeed } from "./seed";
-import type { EstadoViaje, Operador, Unidad, Viaje } from "./types";
+import {
+  operadoresSeed,
+  proveedoresSeed,
+  unidadesSeed,
+  viajesSeed,
+} from "./seed";
+import type {
+  EstadoViaje,
+  Operador,
+  Proveedor,
+  Unidad,
+  Viaje,
+} from "./types";
 
-const STORAGE_KEY = "roundtrip-tms:v1";
+// Se versiona la clave: el modelo cambió (asignación, cobro, pago,
+// liquidación) y los datos guardados con el esquema viejo ya no encajan.
+const STORAGE_KEY = "roundtrip-tms:v2";
 
-type Data = { viajes: Viaje[]; unidades: Unidad[]; operadores: Operador[] };
+type Data = {
+  viajes: Viaje[];
+  unidades: Unidad[];
+  operadores: Operador[];
+  proveedores: Proveedor[];
+};
 
 type Store = Data & {
   hidratado: boolean;
   agregarViaje: (v: Omit<Viaje, "id" | "folio">) => Viaje;
   cambiarEstado: (id: string, estado: EstadoViaje) => void;
+  facturar: (id: string, factura: string, fechaFactura: string) => void;
+  marcarCobrado: (id: string) => void;
+  autorizarPago: (id: string) => void;
+  marcarPagado: (id: string, referencia: string) => void;
+  liquidar: (id: string) => void;
   unidad: (id: string) => Unidad | undefined;
   operador: (id: string) => Operador | undefined;
+  proveedor: (id: string) => Proveedor | undefined;
+  /** Nombre de quien ejecuta el servicio: operador propio o proveedor. */
+  ejecutor: (v: Viaje) => string;
   reiniciar: () => void;
 };
 
@@ -28,6 +54,7 @@ const seed: Data = {
   viajes: viajesSeed,
   unidades: unidadesSeed,
   operadores: operadoresSeed,
+  proveedores: proveedoresSeed,
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -55,6 +82,14 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     }
   }, [data, hidratado]);
 
+  /** Aplica un cambio a un solo viaje sin tocar el resto del estado. */
+  const actualizar = useCallback((id: string, cambio: (v: Viaje) => Viaje) => {
+    setData((prev) => ({
+      ...prev,
+      viajes: prev.viajes.map((v) => (v.id === id ? cambio(v) : v)),
+    }));
+  }, []);
+
   const agregarViaje = useCallback((v: Omit<Viaje, "id" | "folio">) => {
     const creado: Viaje = { ...v, id: `v${Date.now()}`, folio: "" };
     setData((prev) => {
@@ -68,27 +103,105 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
     return creado;
   }, []);
 
-  const cambiarEstado = useCallback((id: string, estado: EstadoViaje) => {
-    setData((prev) => ({
-      ...prev,
-      viajes: prev.viajes.map((v) => (v.id === id ? { ...v, estado } : v)),
-    }));
-  }, []);
+  const cambiarEstado = useCallback(
+    (id: string, estado: EstadoViaje) =>
+      actualizar(id, (v) => ({
+        ...v,
+        estado,
+        // Cerrar el servicio implica avance completo; cancelarlo lo congela.
+        monitoreo: {
+          ...v.monitoreo,
+          avance: estado === "completado" ? 100 : v.monitoreo.avance,
+          actualizado: new Date().toISOString(),
+        },
+      })),
+    [actualizar],
+  );
+
+  const facturar = useCallback(
+    (id: string, factura: string, fechaFactura: string) =>
+      actualizar(id, (v) => ({
+        ...v,
+        cobro: { ...v.cobro, estado: "facturado", factura, fechaFactura },
+      })),
+    [actualizar],
+  );
+
+  const marcarCobrado = useCallback(
+    (id: string) =>
+      actualizar(id, (v) => ({ ...v, cobro: { ...v.cobro, estado: "cobrado" } })),
+    [actualizar],
+  );
+
+  const autorizarPago = useCallback(
+    (id: string) =>
+      actualizar(id, (v) => ({ ...v, pago: { ...v.pago, estado: "autorizado" } })),
+    [actualizar],
+  );
+
+  const marcarPagado = useCallback(
+    (id: string, referencia: string) =>
+      actualizar(id, (v) => ({
+        ...v,
+        pago: {
+          estado: "pagado",
+          referencia,
+          fechaPago: new Date().toISOString().slice(0, 10),
+        },
+      })),
+    [actualizar],
+  );
+
+  const liquidar = useCallback(
+    (id: string) =>
+      actualizar(id, (v) => ({
+        ...v,
+        liquidacion: {
+          estado: "liquidado",
+          fecha: new Date().toISOString().slice(0, 10),
+        },
+      })),
+    [actualizar],
+  );
 
   const reiniciar = useCallback(() => setData(seed), []);
 
-  const value = useMemo<Store>(
-    () => ({
+  const value = useMemo<Store>(() => {
+    const unidad = (id: string) => data.unidades.find((u) => u.id === id);
+    const operador = (id: string) => data.operadores.find((o) => o.id === id);
+    const proveedor = (id: string) => data.proveedores.find((p) => p.id === id);
+
+    return {
       ...data,
       hidratado,
       agregarViaje,
       cambiarEstado,
+      facturar,
+      marcarCobrado,
+      autorizarPago,
+      marcarPagado,
+      liquidar,
       reiniciar,
-      unidad: (id) => data.unidades.find((u) => u.id === id),
-      operador: (id) => data.operadores.find((o) => o.id === id),
-    }),
-    [data, hidratado, agregarViaje, cambiarEstado, reiniciar],
-  );
+      unidad,
+      operador,
+      proveedor,
+      ejecutor: (v: Viaje) =>
+        v.asignacion === "TDC"
+          ? (operador(v.operadorId)?.nombre ?? "Sin asignar")
+          : (proveedor(v.proveedorId)?.nombre ?? "Sin proveedor"),
+    };
+  }, [
+    data,
+    hidratado,
+    agregarViaje,
+    cambiarEstado,
+    facturar,
+    marcarCobrado,
+    autorizarPago,
+    marcarPagado,
+    liquidar,
+    reiniciar,
+  ]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }
