@@ -21,13 +21,6 @@ import { User } from '../../modules/auth/entities/user.entity';
 export type EstadoConductor = 'activo' | 'inactivo' | 'suspendido' | 'baja';
 export type TipoVehiculo = 'full_trailer' | 'sencillo' | 'rabon' | 'pickup';
 export type EstadoVehiculo = 'operativo' | 'mantenimiento' | 'fuera_servicio' | 'vendido';
-export type EstadoSolicitud =
-  | 'solicitado'
-  | 'confirmado'
-  | 'en_ruta'
-  | 'entregado'
-  | 'cancelado'
-  | 'error';
 export type TipoCarga = 'general' | 'perecedero' | 'peligroso' | 'fragil';
 export type EstadoLiquidacion = 'borrador' | 'revisada' | 'pagada' | 'cancelada';
 export type TipoGasto = 'diesel' | 'peajes' | 'mantenimiento' | 'reparacion' | 'otros';
@@ -81,6 +74,9 @@ export class Conductor {
   @Column({ name: 'fecha_baja', type: 'date', nullable: true })
   fechaBaja: string | null;
 
+  @Column({ type: 'boolean', default: true })
+  activo: boolean;
+
   @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 
@@ -97,9 +93,17 @@ export class Vehiculo {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
+  /** Número económico: como se le llama a la unidad en la operación. */
+  @Index('idx_vehiculos_economico', { unique: true })
+  @Column({ type: 'varchar', length: 30, unique: true })
+  economico: string;
+
   @Index('idx_vehiculos_placa', { unique: true })
   @Column({ type: 'varchar', length: 20, unique: true })
   placa: string;
+
+  @Column({ type: 'boolean', default: true })
+  activo: boolean;
 
   @Index('idx_vehiculos_tipo')
   @Column({ type: 'enum', enum: ['full_trailer', 'sencillo', 'rabon', 'pickup'] })
@@ -168,116 +172,9 @@ export class Vehiculo {
   updatedAt: Date;
 }
 
-@Entity('solicitudes_transportes')
-@Index('idx_solicitudes_conductor_fecha', ['conductorAsignado', 'fechaSolicitud'])
-export class SolicitudTransporte {
-  @PrimaryGeneratedColumn('uuid')
-  id: string;
-
-  @Index('idx_solicitudes_numero', { unique: true })
-  @Column({ name: 'numero_solicitud', type: 'varchar', length: 50, unique: true })
-  numeroSolicitud: string;
-
-  /** Referencia a la orden de forwarding; vive en otra base, sin FK. */
-  @Column({ name: 'ref_forwarding_id', type: 'varchar', length: 100, nullable: true })
-  refForwardingId: string | null;
-
-  @Column({ name: 'origen_direccion', type: 'varchar', length: 500, nullable: true })
-  origenDireccion: string | null;
-
-  @Column({ name: 'origen_latitud', type: 'decimal', precision: 10, scale: 8, nullable: true })
-  origenLatitud: string | null;
-
-  @Column({ name: 'origen_longitud', type: 'decimal', precision: 11, scale: 8, nullable: true })
-  origenLongitud: string | null;
-
-  @Column({ name: 'destino_direccion', type: 'varchar', length: 500, nullable: true })
-  destinoDireccion: string | null;
-
-  @Column({ name: 'destino_latitud', type: 'decimal', precision: 10, scale: 8, nullable: true })
-  destinoLatitud: string | null;
-
-  @Column({ name: 'destino_longitud', type: 'decimal', precision: 11, scale: 8, nullable: true })
-  destinoLongitud: string | null;
-
-  @Column({ name: 'peso_kg', type: 'decimal', precision: 12, scale: 2, nullable: true })
-  pesoKg: string | null;
-
-  @Column({ name: 'volumen_m3', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  volumenM3: string | null;
-
-  @Column({ name: 'descripcion_carga', type: 'text', nullable: true })
-  descripcionCarga: string | null;
-
-  @Column({
-    name: 'tipo_carga',
-    type: 'enum',
-    enum: ['general', 'perecedero', 'peligroso', 'fragil'],
-    default: 'general',
-  })
-  tipoCarga: TipoCarga;
-
-  @Column({ name: 'cliente_id', type: 'varchar', length: 100, nullable: true })
-  clienteId: string | null;
-
-  @ManyToOne(() => Conductor, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'conductor_asignado_id' })
-  conductorAsignado: Conductor | null;
-
-  @ManyToOne(() => Vehiculo, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'vehiculo_asignado_id' })
-  vehiculoAsignado: Vehiculo | null;
-
-  @ManyToOne(() => User, { nullable: true, onDelete: 'SET NULL' })
-  @JoinColumn({ name: 'dispatcher_id' })
-  dispatcher: User | null;
-
-  @Index('idx_solicitudes_fecha')
-  @CreateDateColumn({ name: 'fecha_solicitud' })
-  fechaSolicitud: Date;
-
-  @Column({ name: 'fecha_requerida', type: 'date', nullable: true })
-  fechaRequerida: string | null;
-
-  @Column({ name: 'fecha_inicio_viaje', type: 'timestamp', nullable: true })
-  fechaInicioViaje: Date | null;
-
-  @Column({ name: 'fecha_entrega', type: 'timestamp', nullable: true })
-  fechaEntrega: Date | null;
-
-  @Index('idx_solicitudes_estado')
-  @Column({
-    type: 'enum',
-    enum: ['solicitado', 'confirmado', 'en_ruta', 'entregado', 'cancelado', 'error'],
-    default: 'solicitado',
-  })
-  estado: EstadoSolicitud;
-
-  @Column({ name: 'km_estimados', type: 'int', nullable: true })
-  kmEstimados: number | null;
-
-  @Column({ name: 'km_reales', type: 'int', nullable: true })
-  kmReales: number | null;
-
-  @Column({ name: 'tarifa_unitaria', type: 'decimal', precision: 10, scale: 2, nullable: true })
-  tarifaUnitaria: string | null;
-
-  @Column({ name: 'monto_total', type: 'decimal', precision: 15, scale: 2, nullable: true })
-  montoTotal: string | null;
-
-  /** Incidencia asociada; vive en monitoreo_db, por eso es un UUID suelto. */
-  @Column({ name: 'incidencia_id', type: 'uuid', nullable: true })
-  incidenciaId: string | null;
-
-  @Column({ name: 'carta_porte_cfdi_id', type: 'varchar', length: 100, nullable: true })
-  cartaPorteCfdiId: string | null;
-
-  @Column({ name: 'comprobante_entrega', type: 'varchar', length: 255, nullable: true })
-  comprobanteEntrega: string | null;
-
-  @UpdateDateColumn({ name: 'updated_at' })
-  updatedAt: Date;
-}
+// `solicitudes_transportes` quedó sustituida por la entidad `Servicio`
+// (servicio.entity.ts), que es la que usa la aplicación: agrega puerto,
+// citas con hora, modalidad, contenedores y el cierre financiero.
 
 @Entity('liquidaciones')
 @Index('idx_liquidaciones_periodo', ['periodoInicio', 'periodoFin'])
@@ -405,7 +302,6 @@ export class GastoOperativo {
 export const ENTIDADES_TRANSPORTES = [
   Conductor,
   Vehiculo,
-  SolicitudTransporte,
   Liquidacion,
   GastoOperativo,
 ];

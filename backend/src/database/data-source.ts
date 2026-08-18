@@ -4,6 +4,8 @@ import { DataSource } from 'typeorm';
 import { User } from '../modules/auth/entities/user.entity';
 import { TokenBlacklist } from '../modules/auth/entities/token-blacklist.entity';
 import { ENTIDADES_TRANSPORTES } from './entities/transportes.entities';
+import { ENTIDADES_CATALOGOS } from './entities/catalogos.entities';
+import { Servicio } from './entities/servicio.entity';
 
 /**
  * DataSources para el CLI de TypeORM (`migration:generate`, `migration:run`).
@@ -18,7 +20,13 @@ cargarEnv({ path: '.env.local' });
 export const transportesDataSource = new DataSource({
   type: 'postgres',
   url: process.env.DB_TRANSPORTES_URL,
-  entities: [User, TokenBlacklist, ...ENTIDADES_TRANSPORTES],
+  entities: [
+    User,
+    TokenBlacklist,
+    ...ENTIDADES_TRANSPORTES,
+    ...ENTIDADES_CATALOGOS,
+    Servicio,
+  ],
   migrations: [__dirname + '/migrations/transportes/*.{ts,js}'],
   synchronize: false,
 });

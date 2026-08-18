@@ -14,12 +14,15 @@ roundtrip-tms/
 
 | Pieza | Estado |
 |---|---|
-| `frontend/` | ✅ Desplegado en Vercel. Tablero, viajes (listado/alta/detalle), unidades, operadores. Datos demo en `localStorage`, sin API todavía. |
-| `backend/` | ✅ Compila y arranca. Autenticación completa: login, JWT con rotación de refresh, revocación, MFA (TOTP), RBAC y cifrado AES-256-GCM. |
-| Entidades transportes | ✅ `users`, `token_blacklist`, `conductores`, `vehiculos`, `solicitudes_transportes`, `liquidaciones`, `gastos_operativos`. |
-| Entidades forwarding y monitoreo | ❌ Pendientes. Las conexiones existen y responden, pero sin entidades. |
-| Migraciones y seeds | ❌ Pendientes. En desarrollo el esquema se crea con `DB_SYNCHRONIZE=true`. |
-| Módulos de negocio | ❌ Pendientes: `transportes`, `forwarding`, `monitoreo`, `sat` (carta porte CFDI 4.0). |
+| `frontend/` | ✅ Desplegado en Vercel. Las 7 secciones operativas y el administrador oculto de catálogos. Datos demo en `localStorage`: **aún no consume la API**. |
+| Autenticación | ✅ Login, JWT con rotación de refresh, revocación, MFA (TOTP), RBAC y cifrado AES-256-GCM. |
+| Catálogos | ✅ API completa de los 7 catálogos, con borrado protegido por uso. |
+| Servicios | ✅ Alta con folio y carta porte automáticos, edición, monitoreo y cierre financiero (facturar, cobrar, autorizar, pagar, liquidar). |
+| Seeds | ✅ `npm run db:seed`, idempotente. |
+| Migraciones | ❌ Pendientes. En desarrollo el esquema se crea con `DB_SYNCHRONIZE=true`. |
+| Frontend contra API | ❌ Pendiente: sustituir `lib/store.tsx` por un cliente HTTP. |
+| Entidades forwarding y monitoreo | ❌ Pendientes. Las conexiones existen y responden, pero sin entidades: proveedores y GPS siguen fuera de la base. |
+| Módulo SAT | ❌ Pendiente: la carta porte hoy es un folio, no un CFDI 4.0 timbrado. |
 
 ## Backend
 
@@ -44,6 +47,17 @@ npm run dev
 | GET | `/api/v1/auth/me` | autenticado |
 | POST | `/api/v1/auth/mfa/setup` · `mfa/verify` · `mfa/disable` | autenticado |
 | GET | `/api/v1/auth/keycloak/me` | token del realm (RS256) |
+| GET | `/api/v1/catalogos/:tipo` | autenticado |
+| POST · PATCH · DELETE | `/api/v1/catalogos/:tipo` | `admin`, `manager` |
+| GET | `/api/v1/servicios` | autenticado (filtros: `asignacion`, `estado`, `cobro`, `pago`, `liquidacion`, `activos`, `buscar`) |
+| GET | `/api/v1/servicios/resumen` | autenticado (cifras del tablero) |
+| POST · PATCH | `/api/v1/servicios` | `admin`, `manager`, `dispatcher` |
+| POST | `/api/v1/servicios/:id/estado` | `admin`, `manager`, `dispatcher` |
+| POST | `/api/v1/servicios/:id/{facturar,cobrar,autorizar-pago,pagar,liquidar}` | `admin`, `manager`, `accountant` |
+| POST | `/api/v1/servicios/cxc/marcar-vencidos` | `admin`, `manager`, `accountant` |
+
+Catálogos válidos en `:tipo`: `clientes`, `unidades`, `operadores`, `puertos`,
+`tipos-negocio`, `tipos-unidad`, `tipos-mercancia`.
 
 ### Decisiones de seguridad
 
@@ -64,14 +78,32 @@ npm run dev
   tokens, RFC, CURP ni CLABE en el log.
 - **MFA cifrado.** El secreto TOTP y los códigos de respaldo se guardan cifrados
   con AES-256-GCM; los de respaldo son de un solo uso.
+- **Folios sin colisión.** Folio y carta porte se asignan bajo un advisory lock
+  de Postgres: ocho altas simultáneas devuelven ocho consecutivos distintos, no
+  un choque contra el índice único.
+- **Catálogo en uso no se borra.** Se desactiva y responde 409 diciendo cuántos
+  servicios lo referencian; borrarlo dejaría servicios apuntando a la nada.
+- **Orden del cierre financiero.** No se factura sin completar, no se cobra sin
+  factura, no se paga sin autorizar. Liquidar sin que el cliente haya pagado sí
+  se permite —es decisión del área— pero queda anotado en la bitácora.
 
 ### Verificado en local
 
-Contra PostgreSQL 16 real, con esquema creado por TypeORM: health de las tres
-bases, login (correcto, incorrecto y bloqueado), rotación y revocación de
-tokens, alta y validación de MFA con TOTP real, RBAC (403 para rol
-insuficiente), validación de entrada y round-trip de cifrado con acentos, `ñ` y
-emoji.
+Contra PostgreSQL 16 real, con esquema creado por TypeORM:
+
+- **Auth:** health de las tres bases, login (correcto, incorrecto y bloqueado),
+  rotación y revocación de tokens, MFA con TOTP real, RBAC, validación de
+  entrada y round-trip de cifrado con acentos, `ñ` y emoji.
+- **Catálogos:** listado de los siete, alta, borrado real de un registro sin
+  uso (204) y protección del que sí se usa (409 + desactivado).
+- **Servicios:** seed idempotente, alta FWD full one way con folio y carta
+  porte automáticos y crédito heredado del cliente, los siete filtros, el
+  resumen del tablero, el ciclo completo de cierre financiero, el barrido de
+  vencidos y las reglas que lo ordenan (409 al facturar sin completar, al pagar
+  sin autorizar y al liquidar sin completar).
+- **Concurrencia:** ocho altas simultáneas → ocho folios únicos, cero fallos.
+- **RBAC por endpoint:** un `dispatcher` crea servicios (201) pero no catálogos
+  ni facturas (403); sin token, 401.
 
 ## Frontend
 
