@@ -117,6 +117,32 @@ export class CrearServicioDto {
   @Min(0)
   diasCredito?: number;
 
+  // --- Datos del complemento Carta Porte ---
+  @IsOptional()
+  @IsString()
+  @Length(5, 5)
+  cpOrigen?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(5, 5)
+  cpDestino?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  pesoBrutoTotal?: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(2, 5)
+  unidadPeso?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(8, 10)
+  claveProdServCP?: string;
+
   @IsOptional()
   @IsString()
   notas?: string;

@@ -38,6 +38,14 @@ export class Cliente extends Base {
   @Column({ name: 'rfc_encrypted', type: 'varchar', length: 500, nullable: true })
   rfcEncrypted: string | null;
 
+  /** Régimen fiscal del receptor (c_RegimenFiscal). Obligatorio en CFDI 4.0. */
+  @Column({ name: 'regimen_fiscal', type: 'varchar', length: 5, nullable: true })
+  regimenFiscal: string | null;
+
+  /** Código postal del domicilio fiscal del receptor. Obligatorio en 4.0. */
+  @Column({ name: 'codigo_postal', type: 'varchar', length: 5, nullable: true })
+  codigoPostal: string | null;
+
   /** Días de crédito por defecto al dar de alta un servicio. */
   @Column({ name: 'dias_credito', type: 'int', default: 30 })
   diasCredito: number;

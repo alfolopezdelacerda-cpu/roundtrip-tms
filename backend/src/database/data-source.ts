@@ -6,6 +6,7 @@ import { TokenBlacklist } from '../modules/auth/entities/token-blacklist.entity'
 import { ENTIDADES_TRANSPORTES } from './entities/transportes.entities';
 import { ENTIDADES_CATALOGOS } from './entities/catalogos.entities';
 import { Servicio } from './entities/servicio.entity';
+import { CartaPorte } from '../modules/sat/entities/carta-porte.entity';
 
 /**
  * DataSources para el CLI de TypeORM (`migration:generate`, `migration:run`).
@@ -26,6 +27,7 @@ export const transportesDataSource = new DataSource({
     ...ENTIDADES_TRANSPORTES,
     ...ENTIDADES_CATALOGOS,
     Servicio,
+    CartaPorte,
   ],
   migrations: [__dirname + '/migrations/transportes/*.{ts,js}'],
   synchronize: false,

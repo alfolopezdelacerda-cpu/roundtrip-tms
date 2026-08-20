@@ -188,6 +188,15 @@ export class CatalogosService {
           : null;
         delete copia.telefono;
       }
+      // El RFC del operador es obligatorio en la figura de transporte del CCP.
+      if (typeof copia.rfc === 'string') {
+        copia.rfcEncrypted = copia.rfc ? this.encryption.encrypt(copia.rfc) : null;
+        delete copia.rfc;
+      }
+      if (typeof copia.curp === 'string') {
+        copia.curpEncrypted = copia.curp ? this.encryption.encrypt(copia.curp) : null;
+        delete copia.curp;
+      }
     }
 
     return copia;
@@ -199,6 +208,8 @@ export class CatalogosService {
         id: r.id,
         nombre: r.nombre,
         rfc: this.descifrar(r.rfcEncrypted),
+        regimenFiscal: r.regimenFiscal,
+        codigoPostal: r.codigoPostal,
         diasCredito: r.diasCredito,
         activo: r.activo,
       };
@@ -213,6 +224,13 @@ export class CatalogosService {
         capacidadTon: r.capacidadToneladas ? Number(r.capacidadToneladas) : 0,
         estado: r.estado,
         activo: r.activo,
+        // Datos que exige el complemento Carta Porte.
+        configVehicular: r.configVehicular,
+        permisoSct: r.permisoSct,
+        numPermisoSct: r.numPermisoSct,
+        anio: r.anio,
+        aseguradoraCivil: r.aseguradoraCivil,
+        polizaCivil: r.polizaCivil,
       };
     }
 
@@ -222,6 +240,7 @@ export class CatalogosService {
         nombre: r.nombreCompleto,
         licencia: r.licenciaNumero,
         telefono: this.descifrar(r.telefonoEncrypted),
+        rfc: this.descifrar(r.rfcEncrypted),
         estado: r.estado,
         activo: r.activo,
       };

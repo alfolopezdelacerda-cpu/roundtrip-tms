@@ -8,6 +8,7 @@ import * as Joi from 'joi';
 import { AuthModule } from './modules/auth/auth.module';
 import { CatalogosModule } from './modules/catalogos/catalogos.module';
 import { ServiciosModule } from './modules/servicios/servicios.module';
+import { SatModule } from './modules/sat/sat.module';
 import { EncryptionModule } from './security/encryption/encryption.module';
 import { HealthController } from './common/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -16,6 +17,7 @@ import { TokenBlacklist } from './modules/auth/entities/token-blacklist.entity';
 import { ENTIDADES_TRANSPORTES } from './database/entities/transportes.entities';
 import { ENTIDADES_CATALOGOS } from './database/entities/catalogos.entities';
 import { Servicio } from './database/entities/servicio.entity';
+import { CartaPorte } from './modules/sat/entities/carta-porte.entity';
 
 /**
  * Módulo raíz.
@@ -78,6 +80,7 @@ function opcionesBase(config: ConfigService, url: string | undefined): TypeOrmMo
           ...ENTIDADES_TRANSPORTES,
           ...ENTIDADES_CATALOGOS,
           Servicio,
+          CartaPorte,
         ],
         migrations: [__dirname + '/database/migrations/transportes/*.{ts,js}'],
       }),
@@ -111,6 +114,7 @@ function opcionesBase(config: ConfigService, url: string | undefined): TypeOrmMo
     AuthModule,
     CatalogosModule,
     ServiciosModule,
+    SatModule,
   ],
   controllers: [HealthController],
   providers: [

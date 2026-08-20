@@ -22,7 +22,7 @@ roundtrip-tms/
 | Migraciones | ❌ Pendientes. En desarrollo el esquema se crea con `DB_SYNCHRONIZE=true`. |
 | Frontend contra API | ❌ Pendiente: sustituir `lib/store.tsx` por un cliente HTTP. |
 | Entidades forwarding y monitoreo | ❌ Pendientes. Las conexiones existen y responden, pero sin entidades: proveedores y GPS siguen fuera de la base. |
-| Módulo SAT | ❌ Pendiente: la carta porte hoy es un folio, no un CFDI 4.0 timbrado. |
+| Módulo SAT | ⚠️ CFDI 4.0 de traslado con Complemento Carta Porte 3.1: construcción del XML, sellado con el CSD real y timbrado a través de un PAC. Ver las advertencias más abajo antes de usarlo en producción. |
 
 ## Backend
 
@@ -55,6 +55,10 @@ npm run dev
 | POST | `/api/v1/servicios/:id/estado` | `admin`, `manager`, `dispatcher` |
 | POST | `/api/v1/servicios/:id/{facturar,cobrar,autorizar-pago,pagar,liquidar}` | `admin`, `manager`, `accountant` |
 | POST | `/api/v1/servicios/cxc/marcar-vencidos` | `admin`, `manager`, `accountant` |
+| GET | `/api/v1/sat/catalogos` | autenticado |
+| GET | `/api/v1/sat/servicios/:id/validar` | autenticado (qué falta para emitir) |
+| GET | `/api/v1/sat/servicios/:id/carta-porte[/xml]` | autenticado |
+| POST | `/api/v1/sat/servicios/:id/carta-porte/{generar,timbrar,cancelar}` | `admin`, `manager` |
 
 Catálogos válidos en `:tipo`: `clientes`, `unidades`, `operadores`, `puertos`,
 `tipos-negocio`, `tipos-unidad`, `tipos-mercancia`.
@@ -104,6 +108,15 @@ Contra PostgreSQL 16 real, con esquema creado por TypeORM:
 - **Concurrencia:** ocho altas simultáneas → ocho folios únicos, cero fallos.
 - **RBAC por endpoint:** un `dispatcher` crea servicios (201) pero no catálogos
   ni facturas (403); sin token, 401.
+- **SAT:** con un CSD de prueba generado al vuelo — validación previa listando
+  los 14 campos faltantes, captura, emisión del XML con sus ubicaciones,
+  autotransporte y figura de transporte, y **verificación criptográfica del
+  sello con OpenSSL contra la llave pública del certificado** (`Verified OK`, y
+  rechazo al alterar un solo carácter de la cadena). Timbrado simulado con su
+  `TimbreFiscalDigital`, cancelación con motivo válido, y los rechazos: re-
+  timbrar, re-generar sobre timbrado, motivo inválido y motivo `01` sin UUID
+  sustituto. Un `dispatcher` puede validar (200) pero no generar ni timbrar
+  (403).
 
 ## Frontend
 
@@ -125,6 +138,51 @@ que sustituir `lib/store.tsx` por un cliente HTTP con la misma interfaz.
 - **Backend → NO va en Vercel.** Necesita procesos de larga vida, Postgres,
   Redis y Keycloak; el destino natural es un host de contenedores (Railway,
   Render, Fly.io, ECS o Kubernetes).
+
+## Módulo SAT — Carta Porte
+
+Emite el CFDI 4.0 de tipo Traslado con el Complemento Carta Porte 3.1. El flujo
+tiene tres pasos separados a propósito, porque cada uno falla por su cuenta:
+
+1. **Validar** (`/validar`) — dice qué campos faltan, sin emitir nada y sin
+   gastar timbre. El PAC cobra el intento y devuelve códigos poco legibles, así
+   que conviene llegar limpio.
+2. **Generar** — construye el XML y lo sella con el CSD de la empresa.
+3. **Timbrar** — lo envía al PAC, que devuelve el UUID fiscal.
+
+La cancelación exige motivo del catálogo del SAT; el motivo `01` («con
+relación») pide además el UUID que sustituye al cancelado.
+
+### Advertencias antes de producción
+
+Esto es lo que falta para que los comprobantes tengan validez fiscal:
+
+- **El PAC viene en modo `simulado`.** Devuelve UUID que empiezan con
+  `5IMU1AD0` justamente para que sean imposibles de confundir con uno real, y
+  la API los marca con `simulado: true`. Timbrar de verdad requiere contratar
+  un PAC y configurar `SAT_PAC_DRIVER=http` con sus credenciales. El driver
+  `http` habla JSON; casi todos los PAC ofrecen SOAP, así que probablemente
+  haya que adaptar `PacService.timbrarHttp` al de su proveedor.
+- **La cadena original es una implementación propia.** Sigue la regla del
+  Anexo 20 (valores en orden del XSD, sin declaraciones de espacio de nombres,
+  separados por `|`), pero la implementación oficial es la transformación XSLT
+  que publica el SAT. Antes de emitir en producción hay que contrastar ambas
+  con comprobantes reales: si difieren en un carácter, el sello no valida.
+- **Los catálogos SAT incluidos son un subconjunto.** `c_ClaveProdServCP` tiene
+  más de mil claves; aquí van las de uso diario. Hay que cargar los oficiales
+  completos y mantenerlos al día: una clave dada de baja hace que el PAC
+  rechace.
+- **Solo se emite para servicios TDC.** En FWD el comprobante lo emite el
+  transportista que efectivamente traslada, no ADL.
+- **No hay representación impresa (PDF).** El complemento la exige para el
+  operador que va en carretera.
+
+### Sellado
+
+El CSD se carga una sola vez al arrancar; si no está configurado, el módulo no
+se rompe: queda deshabilitado y `/validar` lo reporta. El servicio se niega a
+sellar con un certificado vencido, porque el resultado sería un comprobante que
+el PAC rechaza. La contraseña de la llave nunca se escribe en el log.
 
 ## Documentación
 

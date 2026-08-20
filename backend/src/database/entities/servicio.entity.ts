@@ -218,6 +218,26 @@ export class Servicio {
   @Column({ name: 'monitoreo_actualizado', type: 'timestamp', nullable: true })
   monitoreoActualizado: Date | null;
 
+  // ---- Datos exigidos por el complemento Carta Porte ----
+
+  /** Código postal de origen y destino: el CCP los pide en cada ubicación. */
+  @Column({ name: 'cp_origen', type: 'varchar', length: 5, nullable: true })
+  cpOrigen: string | null;
+
+  @Column({ name: 'cp_destino', type: 'varchar', length: 5, nullable: true })
+  cpDestino: string | null;
+
+  /** Peso bruto total de la mercancía y su unidad (c_ClaveUnidadPeso). */
+  @Column({ name: 'peso_bruto_total', type: 'decimal', precision: 12, scale: 3, default: 0 })
+  pesoBrutoTotal: string;
+
+  @Column({ name: 'unidad_peso', type: 'varchar', length: 5, default: 'KGM' })
+  unidadPeso: string;
+
+  /** c_ClaveProdServCP de la mercancía transportada. */
+  @Column({ name: 'clave_prod_serv_cp', type: 'varchar', length: 10, nullable: true })
+  claveProdServCP: string | null;
+
   @Column({ type: 'text', nullable: true })
   notas: string | null;
 

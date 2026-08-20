@@ -189,6 +189,11 @@ export class ServiciosService {
         tarifa: String(dto.tarifa ?? 0),
         costo: String(dto.costo ?? 0),
         cobroDiasCredito: dto.diasCredito ?? cliente.diasCredito,
+        cpOrigen: dto.cpOrigen ?? null,
+        cpDestino: dto.cpDestino ?? null,
+        pesoBrutoTotal: String(dto.pesoBrutoTotal ?? 0),
+        unidadPeso: dto.unidadPeso ?? 'KGM',
+        claveProdServCP: dto.claveProdServCP ?? null,
         monitoreoUbicacion: dto.origen.trim(),
         monitoreoUltimoEvento: 'Servicio dado de alta',
         monitoreoActualizado: new Date(),
@@ -229,8 +234,11 @@ export class ServiciosService {
 
     if (dto.asignacion) servicio.asignacion = dto.asignacion;
     if (servicio.asignacion === 'TDC') {
-      if (relaciones.vehiculo !== undefined) servicio.vehiculo = relaciones.vehiculo;
-      if (relaciones.conductor !== undefined) servicio.conductor = relaciones.conductor;
+      // Solo se toca lo que el PATCH menciona: `resolverRelaciones` devuelve
+      // null para los campos ausentes, y tomarlo por bueno borraría la
+      // asignación de unidad y operador en cualquier edición parcial.
+      if (dto.unidadId !== undefined) servicio.vehiculo = relaciones.vehiculo;
+      if (dto.operadorId !== undefined) servicio.conductor = relaciones.conductor;
       servicio.proveedorId = null;
     } else {
       if (dto.proveedorId !== undefined) servicio.proveedorId = dto.proveedorId;
@@ -254,6 +262,15 @@ export class ServiciosService {
     if (dto.tarifa !== undefined) servicio.tarifa = String(dto.tarifa);
     if (dto.costo !== undefined) servicio.costo = String(dto.costo);
     if (dto.diasCredito !== undefined) servicio.cobroDiasCredito = dto.diasCredito;
+    if (dto.cpOrigen !== undefined) servicio.cpOrigen = dto.cpOrigen;
+    if (dto.cpDestino !== undefined) servicio.cpDestino = dto.cpDestino;
+    if (dto.pesoBrutoTotal !== undefined) {
+      servicio.pesoBrutoTotal = String(dto.pesoBrutoTotal);
+    }
+    if (dto.unidadPeso !== undefined) servicio.unidadPeso = dto.unidadPeso;
+    if (dto.claveProdServCP !== undefined) {
+      servicio.claveProdServCP = dto.claveProdServCP;
+    }
     if (dto.notas !== undefined) servicio.notas = dto.notas.trim() || null;
 
     if (servicio.citaDescarga < servicio.citaCarga) {
@@ -529,6 +546,11 @@ export class ServiciosService {
         ultimoEvento: s.monitoreoUltimoEvento,
         actualizado: s.monitoreoActualizado?.toISOString() ?? null,
       },
+      cpOrigen: s.cpOrigen,
+      cpDestino: s.cpDestino,
+      pesoBrutoTotal: Number(s.pesoBrutoTotal),
+      unidadPeso: s.unidadPeso,
+      claveProdServCP: s.claveProdServCP,
       notas: s.notas,
     };
   }

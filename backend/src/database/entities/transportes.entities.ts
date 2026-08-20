@@ -139,6 +139,26 @@ export class Vehiculo {
   @Column({ name: 'verificacion_vigente', type: 'boolean', default: false })
   verificacionVigente: boolean;
 
+  // ---- Datos exigidos por el complemento Carta Porte (Autotransporte) ----
+
+  /** c_ConfigAutotransporte: T3S2, C2, VL… */
+  @Column({ name: 'config_vehicular', type: 'varchar', length: 10, nullable: true })
+  configVehicular: string | null;
+
+  /** c_TipoPermiso otorgado por la SCT. */
+  @Column({ name: 'permiso_sct', type: 'varchar', length: 10, nullable: true })
+  permisoSct: string | null;
+
+  @Column({ name: 'num_permiso_sct', type: 'varchar', length: 50, nullable: true })
+  numPermisoSct: string | null;
+
+  /** Aseguradora y póliza de responsabilidad civil, obligatorias en el CCP. */
+  @Column({ name: 'aseguradora_civil', type: 'varchar', length: 100, nullable: true })
+  aseguradoraCivil: string | null;
+
+  @Column({ name: 'poliza_civil', type: 'varchar', length: 50, nullable: true })
+  polizaCivil: string | null;
+
   @Column({ name: 'gps_imei', type: 'varchar', length: 50, nullable: true })
   gpsImei: string | null;
 

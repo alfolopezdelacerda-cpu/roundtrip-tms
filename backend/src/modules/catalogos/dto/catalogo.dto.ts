@@ -39,6 +39,17 @@ export class CatalogoDto {
   @Max(365)
   diasCredito?: number;
 
+  /** c_RegimenFiscal del receptor: obligatorio para emitir CFDI 4.0. */
+  @IsOptional()
+  @IsString()
+  @Length(3, 5)
+  regimenFiscal?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(5, 5)
+  codigoPostal?: string;
+
   // --- tipos de unidad ---
   @IsOptional()
   @IsBoolean()
@@ -64,6 +75,38 @@ export class CatalogoDto {
   @Min(0)
   capacidadToneladas?: number;
 
+  // --- unidades: datos del complemento Carta Porte ---
+  @IsOptional()
+  @IsString()
+  @Length(2, 10)
+  configVehicular?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(4, 10)
+  permisoSct?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  numPermisoSct?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1950)
+  @Max(2100)
+  anio?: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  aseguradoraCivil?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  polizaCivil?: string;
+
   // --- operadores (conductores) ---
   @IsOptional()
   @IsString()
@@ -74,6 +117,12 @@ export class CatalogoDto {
   @IsString()
   @Length(1, 30)
   telefono?: string;
+
+  /** CURP del operador; se guarda cifrada como el RFC. */
+  @IsOptional()
+  @IsString()
+  @Length(18, 18)
+  curp?: string;
 
   /**
    * Estado operativo. Los valores válidos difieren entre unidades
