@@ -19,15 +19,13 @@ export default function RootLayout({
     <html lang="es">
       <body className="min-h-screen antialiased">
         <StoreProvider>
-          <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col sm:flex-row">
-            <div className="flex min-w-0 flex-1 flex-col sm:order-1">
+          <div className="flex min-h-screen w-full flex-col sm:flex-row">
+            <Nav />
+            <div className="flex min-w-0 flex-1 flex-col">
               <main className="flex-1 px-4 py-6 sm:px-6">
                 <Sesion>{children}</Sesion>
               </main>
               <PieDePagina />
-            </div>
-            <div className="sm:order-2">
-              <Nav />
             </div>
           </div>
         </StoreProvider>

@@ -7,8 +7,10 @@ import { Card, Empty, Kpi, PageTitle } from "@/components/ui";
 import { fechaHora } from "@/lib/format";
 import {
   ESTADO_LABEL,
+  ESTADO_SEMAFORO,
   ESTADOS_VIAJE,
   HITOS_MONITOREO,
+  SEMAFORO_CLASS,
   VIAJE_ACTIVO,
   type Asignacion,
   type EstadoViaje,
@@ -276,17 +278,23 @@ function FilaMonitoreo({ viaje: v }: { viaje: Viaje }) {
         />
       </td>
       <td className={celda}>
-        <select
-          value={v.estado}
-          onChange={(e) => cambiarEstado(v.id, e.target.value as EstadoViaje)}
-          className="rounded border border-line bg-white px-1.5 py-1 text-xs outline-none focus:border-amber"
-        >
-          {ESTADOS_VIAJE.filter((e) => e.value !== "por_asignar").map((e) => (
-            <option key={e.value} value={e.value}>
-              {ESTADO_LABEL[e.value]}
-            </option>
-          ))}
-        </select>
+        <div className="flex items-center gap-1.5">
+          <span
+            className={`h-2.5 w-2.5 shrink-0 rounded-full ${SEMAFORO_CLASS[ESTADO_SEMAFORO[v.estado]]}`}
+            title={ESTADO_SEMAFORO[v.estado]}
+          />
+          <select
+            value={v.estado}
+            onChange={(e) => cambiarEstado(v.id, e.target.value as EstadoViaje)}
+            className="rounded border border-line bg-white px-1.5 py-1 text-xs outline-none focus:border-amber"
+          >
+            {ESTADOS_VIAJE.filter((e) => e.value !== "por_asignar").map((e) => (
+              <option key={e.value} value={e.value}>
+                {ESTADO_LABEL[e.value]}
+              </option>
+            ))}
+          </select>
+        </div>
       </td>
       <td className={celda}>
         <input

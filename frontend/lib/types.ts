@@ -181,6 +181,30 @@ export const ESTADO_CLASS: Record<EstadoViaje, string> = {
   cancelado: "bg-rose-50 text-rose-700 ring-rose-200",
 };
 
+/**
+ * Semáforo de Monitoreo: verde = en curso o cerrado bien, amarillo = aún no
+ * sale, rojo = cancelado. No mide retraso contra la cita porque hoy no hay
+ * un dato de "hora comprometida" contra el que compararlo; es un semáforo
+ * de avance, no de puntualidad.
+ */
+export type Semaforo = "verde" | "amarillo" | "rojo";
+
+export const ESTADO_SEMAFORO: Record<EstadoViaje, Semaforo> = {
+  por_asignar: "rojo",
+  programado: "amarillo",
+  en_ruta_ida: "verde",
+  en_destino: "verde",
+  en_ruta_vuelta: "verde",
+  completado: "verde",
+  cancelado: "rojo",
+};
+
+export const SEMAFORO_CLASS: Record<Semaforo, string> = {
+  verde: "bg-emerald-500",
+  amarillo: "bg-amber-400",
+  rojo: "bg-rose-500",
+};
+
 export const COBRO_LABEL: Record<EstadoCobro, string> = {
   pendiente: "Por facturar",
   facturado: "Facturado",
