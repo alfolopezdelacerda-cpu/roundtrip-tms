@@ -249,6 +249,41 @@ export class Servicio {
   @Column({ name: 'monitoreo_placa_manual', type: 'varchar', length: 20, default: '' })
   monitoreoPlacaManual: string;
 
+  @Column({ name: 'monitoreo_observaciones', type: 'text', default: '' })
+  monitoreoObservaciones: string;
+
+  /** Cuenta espejo del rastreo GPS del proveedor: solo aplica a FWD. */
+  @Column({ name: 'monitoreo_cuenta_espejo', type: 'varchar', length: 100, default: '' })
+  monitoreoCuentaEspejo: string;
+
+  @Column({ name: 'monitoreo_referencia', type: 'varchar', length: 100, default: '' })
+  monitoreoReferencia: string;
+
+  /**
+   * Bitácora de hitos del tramo, capturados a mano según van ocurriendo.
+   * Ninguno se infiere de `estado`: tráfico los anota conforme suceden.
+   */
+  @Column({ name: 'monitoreo_salida_patio', type: 'timestamp', nullable: true })
+  monitoreoSalidaPatio: Date | null;
+
+  @Column({ name: 'monitoreo_arribo_carga', type: 'timestamp', nullable: true })
+  monitoreoArriboCarga: Date | null;
+
+  @Column({ name: 'monitoreo_ingreso_cargar', type: 'timestamp', nullable: true })
+  monitoreoIngresoCargar: Date | null;
+
+  @Column({ name: 'monitoreo_inicio_ruta', type: 'timestamp', nullable: true })
+  monitoreoInicioRuta: Date | null;
+
+  @Column({ name: 'monitoreo_arribo_destino', type: 'timestamp', nullable: true })
+  monitoreoArriboDestino: Date | null;
+
+  @Column({ name: 'monitoreo_ingreso_descarga', type: 'timestamp', nullable: true })
+  monitoreoIngresoDescarga: Date | null;
+
+  @Column({ name: 'monitoreo_servicio_finalizado', type: 'timestamp', nullable: true })
+  monitoreoServicioFinalizado: Date | null;
+
   // ---- Datos exigidos por el complemento Carta Porte ----
 
   /** Código postal de origen y destino: el CCP los pide en cada ubicación. */

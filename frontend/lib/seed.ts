@@ -24,11 +24,38 @@ export const proveedoresSeed: Proveedor[] = [
   { id: "p4", nombre: "Almacenes Pacífico", tipo: "almacen", diasPago: 30, contacto: "contacto@almpacifico.mx", activo: true },
 ];
 
+/** Monitoreo en blanco: cada entrada del seed solo declara lo que difiere. */
+const MONITOREO_VACIO: Viaje["monitoreo"] = {
+  avance: 0,
+  ubicacion: "—",
+  ultimoEvento: "Servicio dado de alta",
+  actualizado: "2026-08-15T08:00:00Z",
+  operadorManual: "",
+  medioComunicacion: "",
+  unidadManual: "",
+  placaManual: "",
+  observaciones: "",
+  cuentaEspejo: "",
+  referencia: "",
+  salidaPatio: "",
+  arriboCarga: "",
+  ingresoCargar: "",
+  inicioRuta: "",
+  arriboDestino: "",
+  ingresoDescarga: "",
+  servicioFinalizado: "",
+};
+
 /**
  * Base de un servicio. Cada registro del seed solo declara lo que lo hace
- * distinto; así los 10 servicios de ejemplo caben sin repetir 30 campos.
+ * distinto; así los 10 servicios de ejemplo caben sin repetir 30 campos. El
+ * bloque de monitoreo se combina campo a campo, no se reemplaza entero, para
+ * no tener que repetir los diez y tantos campos que no cambian.
  */
-function servicio(v: Partial<Viaje> & Pick<Viaje, "id" | "folio" | "cliente">): Viaje {
+function servicio(
+  v: Partial<Omit<Viaje, "monitoreo">> &
+    Pick<Viaje, "id" | "folio" | "cliente"> & { monitoreo?: Partial<Viaje["monitoreo"]> },
+): Viaje {
   return {
     cartaPorte: `CP-2026-${v.folio.replace(/\D/g, "")}`,
     clienteId: "",
@@ -57,17 +84,8 @@ function servicio(v: Partial<Viaje> & Pick<Viaje, "id" | "folio" | "cliente">): 
     cobro: { estado: "pendiente", factura: null, fechaFactura: null, diasCredito: 30 },
     pago: { estado: "pendiente", referencia: null, fechaPago: null },
     liquidacion: { estado: "pendiente", fecha: null },
-    monitoreo: {
-      avance: 0,
-      ubicacion: "—",
-      ultimoEvento: "Servicio dado de alta",
-      actualizado: "2026-08-15T08:00:00Z",
-      operadorManual: "",
-      medioComunicacion: "",
-      unidadManual: "",
-      placaManual: "",
-    },
     ...v,
+    monitoreo: { ...MONITOREO_VACIO, ...v.monitoreo },
   };
 }
 
@@ -104,6 +122,13 @@ export const viajesSeed: Viaje[] = [
       medioComunicacion: "Celular 55 1244 8890",
       unidadManual: "T-101",
       placaManual: "AB-472-XC",
+      observaciones: "Retorno con carga de compensación desde Apodaca.",
+      referencia: "MON-88231",
+      salidaPatio: "2026-08-12T07:15",
+      arriboCarga: "2026-08-12T08:10",
+      ingresoCargar: "2026-08-12T08:30",
+      inicioRuta: "2026-08-12T10:05",
+      arriboDestino: "2026-08-13T09:40",
     },
     notas: "Retorno con carga de compensación desde Apodaca.",
   }),
@@ -137,6 +162,11 @@ export const viajesSeed: Viaje[] = [
       medioComunicacion: "Radio flotilla canal 4",
       unidadManual: "T-102",
       placaManual: "AB-518-XC",
+      referencia: "MON-88250",
+      salidaPatio: "2026-08-14T05:45",
+      arriboCarga: "2026-08-14T06:30",
+      ingresoCargar: "2026-08-14T06:50",
+      inicioRuta: "2026-08-14T08:15",
     },
   }),
   servicio({
@@ -303,6 +333,12 @@ export const viajesSeed: Viaje[] = [
       medioComunicacion: "WhatsApp 33 1188 4420",
       unidadManual: "FDG-118",
       placaManual: "JC-227-45",
+      cuentaEspejo: "GPS-FDG-8821",
+      referencia: "MON-77120",
+      salidaPatio: "2026-08-13T04:40",
+      arriboCarga: "2026-08-13T05:20",
+      ingresoCargar: "2026-08-13T06:00",
+      inicioRuta: "2026-08-13T07:10",
     },
     notas: "Importación con despacho en Manzanillo.",
   }),
@@ -341,6 +377,15 @@ export const viajesSeed: Viaje[] = [
       medioComunicacion: "Celular 33 5521 0087",
       unidadManual: "ATB-054",
       placaManual: "GJ-340-12",
+      cuentaEspejo: "GPS-ATB-3390",
+      referencia: "MON-77340",
+      salidaPatio: "2026-08-10T04:00",
+      arriboCarga: "2026-08-10T04:45",
+      ingresoCargar: "2026-08-10T05:15",
+      inicioRuta: "2026-08-10T06:30",
+      arriboDestino: "2026-08-12T10:50",
+      ingresoDescarga: "2026-08-12T11:30",
+      servicioFinalizado: "2026-08-12T13:00",
     },
   }),
   servicio({

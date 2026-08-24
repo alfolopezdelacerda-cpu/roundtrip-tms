@@ -329,6 +329,30 @@ export class ServiciosService {
     if (dto.placaManual !== undefined) {
       servicio.monitoreoPlacaManual = dto.placaManual.trim();
     }
+    if (dto.ubicacion !== undefined) {
+      servicio.monitoreoUbicacion = dto.ubicacion.trim();
+    }
+    if (dto.observaciones !== undefined) {
+      servicio.monitoreoObservaciones = dto.observaciones.trim();
+    }
+    if (dto.cuentaEspejo !== undefined) {
+      servicio.monitoreoCuentaEspejo = dto.cuentaEspejo.trim();
+    }
+    if (dto.referencia !== undefined) {
+      servicio.monitoreoReferencia = dto.referencia.trim();
+    }
+
+    const hito = (valor?: string) => (valor === undefined ? undefined : valor ? new Date(valor) : null);
+    if (dto.salidaPatio !== undefined) servicio.monitoreoSalidaPatio = hito(dto.salidaPatio)!;
+    if (dto.arriboCarga !== undefined) servicio.monitoreoArriboCarga = hito(dto.arriboCarga)!;
+    if (dto.ingresoCargar !== undefined) servicio.monitoreoIngresoCargar = hito(dto.ingresoCargar)!;
+    if (dto.inicioRuta !== undefined) servicio.monitoreoInicioRuta = hito(dto.inicioRuta)!;
+    if (dto.arriboDestino !== undefined) servicio.monitoreoArriboDestino = hito(dto.arriboDestino)!;
+    if (dto.ingresoDescarga !== undefined) servicio.monitoreoIngresoDescarga = hito(dto.ingresoDescarga)!;
+    if (dto.servicioFinalizado !== undefined) {
+      servicio.monitoreoServicioFinalizado = hito(dto.servicioFinalizado)!;
+    }
+
     servicio.monitoreoActualizado = new Date();
 
     await this.servicios.save(servicio);
@@ -580,6 +604,16 @@ export class ServiciosService {
         medioComunicacion: s.monitoreoMedioComunicacion,
         unidadManual: s.monitoreoUnidadManual,
         placaManual: s.monitoreoPlacaManual,
+        observaciones: s.monitoreoObservaciones,
+        cuentaEspejo: s.monitoreoCuentaEspejo,
+        referencia: s.monitoreoReferencia,
+        salidaPatio: s.monitoreoSalidaPatio?.toISOString() ?? null,
+        arriboCarga: s.monitoreoArriboCarga?.toISOString() ?? null,
+        ingresoCargar: s.monitoreoIngresoCargar?.toISOString() ?? null,
+        inicioRuta: s.monitoreoInicioRuta?.toISOString() ?? null,
+        arriboDestino: s.monitoreoArriboDestino?.toISOString() ?? null,
+        ingresoDescarga: s.monitoreoIngresoDescarga?.toISOString() ?? null,
+        servicioFinalizado: s.monitoreoServicioFinalizado?.toISOString() ?? null,
       },
       cpOrigen: s.cpOrigen,
       cpDestino: s.cpDestino,

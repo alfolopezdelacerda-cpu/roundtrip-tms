@@ -214,10 +214,12 @@ export class PagarDto {
 }
 
 /**
- * Campos que se capturan a mano cuando el servicio llega a Monitoreo:
- * operador, medio de comunicación, unidad y placa reales. No vienen de un
- * catálogo porque en FWD son del proveedor, y en TDC pueden diferir de lo que
- * se asignó al programar.
+ * Campos que se capturan a mano en el tablero de Monitoreo. Operador, medio
+ * de comunicación, unidad y placa no vienen de catálogo en FWD porque son
+ * del proveedor; en TDC ya llegan del catálogo vía la asignación y no se
+ * tocan aquí. Ubicación, observaciones, referencia y cuenta espejo, más los
+ * siete hitos del tramo (de salida de patio a servicio finalizado), son
+ * manuales en ambos: nadie los infiere del estado.
  */
 export class ActualizarMonitoreoDto {
   @IsOptional()
@@ -239,6 +241,55 @@ export class ActualizarMonitoreoDto {
   @IsString()
   @Length(0, 20)
   placaManual?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  ubicacion?: string;
+
+  @IsOptional()
+  @IsString()
+  observaciones?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 100)
+  cuentaEspejo?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 100)
+  referencia?: string;
+
+  // Hitos: cadena vacía limpia el hito, ISO lo marca. No @IsDateString()
+  // porque "" es un valor válido aquí y esa validación lo rechazaría.
+  @IsOptional()
+  @IsString()
+  salidaPatio?: string;
+
+  @IsOptional()
+  @IsString()
+  arriboCarga?: string;
+
+  @IsOptional()
+  @IsString()
+  ingresoCargar?: string;
+
+  @IsOptional()
+  @IsString()
+  inicioRuta?: string;
+
+  @IsOptional()
+  @IsString()
+  arriboDestino?: string;
+
+  @IsOptional()
+  @IsString()
+  ingresoDescarga?: string;
+
+  @IsOptional()
+  @IsString()
+  servicioFinalizado?: string;
 }
 
 export class FiltroServiciosDto {

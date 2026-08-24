@@ -102,14 +102,27 @@ export type Viaje = {
   monitoreo: {
     /** 0-100. En completado siempre 100. */
     avance: number;
+    /** Manual en ambos: ubicación actual reportada. */
     ubicacion: string;
     ultimoEvento: string;
     actualizado: string; // ISO
-    /** Captura manual al caer en Monitoreo: no viene de catálogo. */
+    /** Captura manual al caer en Monitoreo: no viene de catálogo en FWD. */
     operadorManual: string;
     medioComunicacion: string;
     unidadManual: string;
     placaManual: string;
+    /** Manuales en ambos: no se infieren de nada más. */
+    observaciones: string;
+    cuentaEspejo: string;
+    referencia: string;
+    /** Bitácora de hitos del tramo, cada uno vacío hasta que se captura. */
+    salidaPatio: string; // datetime-local
+    arriboCarga: string;
+    ingresoCargar: string;
+    inicioRuta: string;
+    arriboDestino: string;
+    ingresoDescarga: string;
+    servicioFinalizado: string;
   };
 
   notas?: string;
@@ -279,6 +292,17 @@ export function listoParaProgramar(v: Viaje): boolean {
     ? Boolean(v.unidadId && v.operadorId)
     : Boolean(v.proveedorId);
 }
+
+/** Hitos del tramo en Monitoreo, en el orden en que ocurren. */
+export const HITOS_MONITOREO: { clave: keyof Viaje["monitoreo"]; titulo: string }[] = [
+  { clave: "salidaPatio", titulo: "Salida de patio" },
+  { clave: "arriboCarga", titulo: "Arribo a carga" },
+  { clave: "ingresoCargar", titulo: "Ingreso a cargar" },
+  { clave: "inicioRuta", titulo: "Inicio de ruta" },
+  { clave: "arriboDestino", titulo: "Arribo a destino" },
+  { clave: "ingresoDescarga", titulo: "Ingreso a descarga" },
+  { clave: "servicioFinalizado", titulo: "Servicio finalizado" },
+];
 
 /** Fecha de referencia del servicio para ordenar y agrupar. */
 export function fechaServicio(v: Viaje): string {

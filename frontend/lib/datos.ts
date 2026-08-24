@@ -56,13 +56,36 @@ export type DatosAsignacion = {
   costo?: number;
 };
 
-/** Captura manual al caer en Monitoreo: no viene de catálogo. */
+/** Captura manual en el tablero de Monitoreo. */
 export type DatosMonitoreoManual = {
   operadorManual?: string;
   medioComunicacion?: string;
   unidadManual?: string;
   placaManual?: string;
+  ubicacion?: string;
+  observaciones?: string;
+  cuentaEspejo?: string;
+  referencia?: string;
+  /** Hitos en formato datetime-local; cadena vacía limpia el hito. */
+  salidaPatio?: string;
+  arriboCarga?: string;
+  ingresoCargar?: string;
+  inicioRuta?: string;
+  arriboDestino?: string;
+  ingresoDescarga?: string;
+  servicioFinalizado?: string;
 };
+
+/** Claves de hitos, para convertir en bloque entre ISO y datetime-local. */
+const HITOS = [
+  "salidaPatio",
+  "arriboCarga",
+  "ingresoCargar",
+  "inicioRuta",
+  "arriboDestino",
+  "ingresoDescarga",
+  "servicioFinalizado",
+] as const;
 
 export type FuenteDatos = {
   modo: Modo;
@@ -157,7 +180,7 @@ function fuenteApi(): FuenteDatos {
     actualizarMonitoreo: (id, datos) =>
       peticion<ServicioApi>(`/api/v1/servicios/${id}/monitoreo`, {
         metodo: "PATCH",
-        cuerpo: datos,
+        cuerpo: aApiMonitoreo(datos),
       }).then(deApi),
 
     cambiarEstado: (id, estado) => accion(id, "estado", { estado }),
@@ -220,16 +243,28 @@ function aLocal(iso: string | null): string {
 }
 
 function deApi(s: ServicioApi): Viaje {
+  const monitoreo = { ...s.monitoreo, actualizado: s.monitoreo.actualizado ?? new Date().toISOString() };
+  const hitos = monitoreo as unknown as Record<string, string | null>;
+  for (const clave of HITOS) {
+    hitos[clave] = aLocal(hitos[clave]);
+  }
   return {
     ...s,
     citaCarga: aLocal(s.citaCarga),
     citaDescarga: aLocal(s.citaDescarga),
     notas: s.notas ?? undefined,
-    monitoreo: {
-      ...s.monitoreo,
-      actualizado: s.monitoreo.actualizado ?? new Date().toISOString(),
-    },
+    monitoreo,
   };
+}
+
+/** Los hitos viajan en datetime-local; la API los quiere en ISO (o null). */
+function aApiMonitoreo(datos: DatosMonitoreoManual): Record<string, unknown> {
+  const cuerpo: Record<string, unknown> = { ...datos };
+  for (const clave of HITOS) {
+    const valor = datos[clave];
+    if (valor !== undefined) cuerpo[clave] = valor ? new Date(valor).toISOString() : "";
+  }
+  return cuerpo;
 }
 
 /** El alta manda solo lo que el backend acepta; folio y carta porte los pone él. */
@@ -352,21 +387,19 @@ function fuenteDemo(): FuenteDatos {
       })),
 
     actualizarMonitoreo: async (id, datos) =>
-      editar(id, (v) => ({
-        ...v,
-        monitoreo: {
-          ...v.monitoreo,
-          ...(datos.operadorManual !== undefined
-            ? { operadorManual: datos.operadorManual }
-            : {}),
-          ...(datos.medioComunicacion !== undefined
-            ? { medioComunicacion: datos.medioComunicacion }
-            : {}),
-          ...(datos.unidadManual !== undefined ? { unidadManual: datos.unidadManual } : {}),
-          ...(datos.placaManual !== undefined ? { placaManual: datos.placaManual } : {}),
-          actualizado: new Date().toISOString(),
-        },
-      })),
+      editar(id, (v) => {
+        const cambios = Object.fromEntries(
+          Object.entries(datos).filter(([, valor]) => valor !== undefined),
+        );
+        return {
+          ...v,
+          monitoreo: {
+            ...v.monitoreo,
+            ...cambios,
+            actualizado: new Date().toISOString(),
+          },
+        };
+      }),
 
     cambiarEstado: async (id, estado) =>
       editar(id, (v) => ({
