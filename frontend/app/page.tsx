@@ -26,9 +26,9 @@ export default function Tablero() {
 
   const tdc = activos.filter((v) => v.asignacion === "TDC");
   const fwd = activos.filter((v) => v.asignacion === "FWD");
-  const sinAsignar = activos.filter((v) =>
-    v.asignacion === "TDC" ? !v.unidadId || !v.operadorId : !v.proveedorId,
-  ).length;
+  const porAsignar = viajes.filter((v) => v.estado === "por_asignar");
+  const porAsignarTDC = porAsignar.filter((v) => v.asignacion === "TDC").length;
+  const porAsignarFWD = porAsignar.filter((v) => v.asignacion === "FWD").length;
 
   const cxc = viajes.filter(
     (v) => v.estado === "completado" && v.cobro.estado !== "cobrado",
@@ -81,17 +81,22 @@ export default function Tablero() {
           titulo="Asignación TDC"
           cifra={String(tdc.length)}
           detalle={
-            sinAsignar
-              ? `${sinAsignar} servicio(s) sin unidad u operador`
+            porAsignarTDC
+              ? `${porAsignarTDC} servicio(s) por asignar`
               : "Todo asignado"
           }
-          alerta={sinAsignar > 0}
+          alerta={porAsignarTDC > 0}
         />
         <Atajo
           href="/asignacion-fwd"
           titulo="Asignación FWD"
           cifra={String(fwd.length)}
-          detalle="Servicios con proveedor externo"
+          detalle={
+            porAsignarFWD
+              ? `${porAsignarFWD} servicio(s) por asignar`
+              : "Servicios con proveedor externo"
+          }
+          alerta={porAsignarFWD > 0}
         />
         <Atajo
           href="/monitoreo"

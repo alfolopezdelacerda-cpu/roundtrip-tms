@@ -53,6 +53,7 @@ npm run dev
 | GET | `/api/v1/servicios/resumen` | autenticado (cifras del tablero) |
 | POST · PATCH | `/api/v1/servicios` | `admin`, `manager`, `dispatcher` |
 | POST | `/api/v1/servicios/:id/estado` | `admin`, `manager`, `dispatcher` |
+| PATCH | `/api/v1/servicios/:id/monitoreo` | `admin`, `manager`, `dispatcher` (operador, medio de comunicación, unidad y placa manuales) |
 | POST | `/api/v1/servicios/:id/{facturar,cobrar,autorizar-pago,pagar,liquidar}` | `admin`, `manager`, `accountant` |
 | POST | `/api/v1/servicios/cxc/marcar-vencidos` | `admin`, `manager`, `accountant` |
 | GET | `/api/v1/sat/catalogos` | autenticado |
@@ -90,6 +91,12 @@ Catálogos válidos en `:tipo`: `clientes`, `unidades`, `operadores`, `puertos`,
 - **Orden del cierre financiero.** No se factura sin completar, no se cobra sin
   factura, no se paga sin autorizar. Liquidar sin que el cliente haya pagado sí
   se permite —es decisión del área— pero queda anotado en la bitácora.
+- **Alta sin ejecución.** Un servicio nace en `por_asignar`: sin unidad,
+  operador ni proveedor. Solo entra a Monitoreo cuando Asignación TDC/FWD
+  completa esos datos y le da "Programar Servicio", que lo mueve a
+  `programado`. Operador, medio de comunicación, unidad y placa reales se
+  capturan a mano ya en Monitoreo —no vienen de catálogo, porque en FWD son
+  del proveedor y pueden diferir de lo asignado en TDC.
 
 ### Verificado en local
 

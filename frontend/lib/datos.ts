@@ -46,10 +46,30 @@ export type RegistroCatalogo = {
 
 export type ResultadoBorrado = { desactivado: boolean; usos: number };
 
+/** Lo que se completa en Asignación TDC/FWD antes de "Programar Servicio". */
+export type DatosAsignacion = {
+  unidadId?: string;
+  operadorId?: string;
+  proveedorId?: string;
+  km?: number;
+  tarifa?: number;
+  costo?: number;
+};
+
+/** Captura manual al caer en Monitoreo: no viene de catálogo. */
+export type DatosMonitoreoManual = {
+  operadorManual?: string;
+  medioComunicacion?: string;
+  unidadManual?: string;
+  placaManual?: string;
+};
+
 export type FuenteDatos = {
   modo: Modo;
   cargar: () => Promise<Datos>;
   crearViaje: (v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => Promise<Viaje>;
+  asignar: (id: string, datos: DatosAsignacion) => Promise<Viaje>;
+  actualizarMonitoreo: (id: string, datos: DatosMonitoreoManual) => Promise<Viaje>;
   cambiarEstado: (id: string, estado: EstadoViaje) => Promise<Viaje>;
   facturar: (id: string, factura: string, fechaFactura: string) => Promise<Viaje>;
   marcarCobrado: (id: string) => Promise<Viaje>;
@@ -126,6 +146,18 @@ function fuenteApi(): FuenteDatos {
       peticion<ServicioApi>("/api/v1/servicios", {
         metodo: "POST",
         cuerpo: aApi(v),
+      }).then(deApi),
+
+    asignar: (id, datos) =>
+      peticion<ServicioApi>(`/api/v1/servicios/${id}`, {
+        metodo: "PATCH",
+        cuerpo: datos,
+      }).then(deApi),
+
+    actualizarMonitoreo: (id, datos) =>
+      peticion<ServicioApi>(`/api/v1/servicios/${id}/monitoreo`, {
+        metodo: "PATCH",
+        cuerpo: datos,
       }).then(deApi),
 
     cambiarEstado: (id, estado) => accion(id, "estado", { estado }),
@@ -235,7 +267,7 @@ function aApi(v: Omit<Viaje, "id" | "folio" | "cartaPorte">): Record<string, unk
 // Fuente: demostración
 // ============================================
 
-const CLAVE_DEMO = "roundtrip-tms:v4";
+const CLAVE_DEMO = "roundtrip-tms:v5";
 
 function fuenteDemo(): FuenteDatos {
   const inicial = (): Datos => ({
@@ -307,6 +339,34 @@ function fuenteDemo(): FuenteDatos {
       guardar();
       return creado;
     },
+
+    asignar: async (id, datos) =>
+      editar(id, (v) => ({
+        ...v,
+        ...(datos.unidadId !== undefined ? { unidadId: datos.unidadId } : {}),
+        ...(datos.operadorId !== undefined ? { operadorId: datos.operadorId } : {}),
+        ...(datos.proveedorId !== undefined ? { proveedorId: datos.proveedorId } : {}),
+        ...(datos.km !== undefined ? { km: datos.km } : {}),
+        ...(datos.tarifa !== undefined ? { tarifa: datos.tarifa } : {}),
+        ...(datos.costo !== undefined ? { costo: datos.costo } : {}),
+      })),
+
+    actualizarMonitoreo: async (id, datos) =>
+      editar(id, (v) => ({
+        ...v,
+        monitoreo: {
+          ...v.monitoreo,
+          ...(datos.operadorManual !== undefined
+            ? { operadorManual: datos.operadorManual }
+            : {}),
+          ...(datos.medioComunicacion !== undefined
+            ? { medioComunicacion: datos.medioComunicacion }
+            : {}),
+          ...(datos.unidadManual !== undefined ? { unidadManual: datos.unidadManual } : {}),
+          ...(datos.placaManual !== undefined ? { placaManual: datos.placaManual } : {}),
+          actualizado: new Date().toISOString(),
+        },
+      })),
 
     cambiarEstado: async (id, estado) =>
       editar(id, (v) => ({

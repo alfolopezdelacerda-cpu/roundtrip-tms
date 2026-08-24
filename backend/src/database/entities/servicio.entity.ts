@@ -32,6 +32,7 @@ export type Modalidad = 'OW' | 'RT';
 export type Temperatura = 'RF' | 'SECO';
 
 export type EstadoServicio =
+  | 'por_asignar'
   | 'programado'
   | 'en_ruta_ida'
   | 'en_destino'
@@ -43,7 +44,14 @@ export type EstadoCobro = 'pendiente' | 'facturado' | 'cobrado' | 'vencido';
 export type EstadoPago = 'pendiente' | 'autorizado' | 'pagado';
 export type EstadoLiquidacionServicio = 'pendiente' | 'liquidado';
 
+/**
+ * `por_asignar` es el estado de alta: el servicio existe pero todavía no
+ * tiene unidad+operador (TDC) o proveedor (FWD). Solo al "Programar Servicio"
+ * desde Asignación TDC/FWD pasa a `programado`, que es cuando aparece en
+ * Monitoreo.
+ */
 export const ESTADOS_SERVICIO: EstadoServicio[] = [
+  'por_asignar',
   'programado',
   'en_ruta_ida',
   'en_destino',
@@ -217,6 +225,29 @@ export class Servicio {
 
   @Column({ name: 'monitoreo_actualizado', type: 'timestamp', nullable: true })
   monitoreoActualizado: Date | null;
+
+  /**
+   * Datos manuales que se capturan cuando el servicio cae en la ventana de
+   * Monitoreo. En FWD el operador y la unidad reales son del proveedor y no
+   * existen en nuestros catálogos; en TDC pueden diferir de lo asignado si al
+   * final salió otro operador u otra unidad.
+   */
+  @Column({ name: 'monitoreo_operador_manual', type: 'varchar', length: 255, default: '' })
+  monitoreoOperadorManual: string;
+
+  @Column({
+    name: 'monitoreo_medio_comunicacion',
+    type: 'varchar',
+    length: 255,
+    default: '',
+  })
+  monitoreoMedioComunicacion: string;
+
+  @Column({ name: 'monitoreo_unidad_manual', type: 'varchar', length: 100, default: '' })
+  monitoreoUnidadManual: string;
+
+  @Column({ name: 'monitoreo_placa_manual', type: 'varchar', length: 20, default: '' })
+  monitoreoPlacaManual: string;
 
   // ---- Datos exigidos por el complemento Carta Porte ----
 

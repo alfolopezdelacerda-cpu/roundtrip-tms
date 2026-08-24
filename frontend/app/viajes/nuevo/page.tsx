@@ -3,15 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
-import {
-  ESTADOS_VIAJE,
-  operadorDisponible,
-  unidadDisponible,
-  type Asignacion,
-  type EstadoViaje,
-  type Modalidad,
-  type Temperatura,
-} from "@/lib/types";
+import type { Asignacion, Modalidad, Temperatura } from "@/lib/types";
 import { Card, PageTitle } from "@/components/ui";
 
 const campo =
@@ -22,9 +14,6 @@ export default function NuevoViaje() {
   const router = useRouter();
   const {
     clientes,
-    unidades,
-    operadores,
-    proveedores,
     puertos,
     tiposNegocio,
     tiposUnidad,
@@ -41,9 +30,6 @@ export default function NuevoViaje() {
     citaCarga: "",
     citaDescarga: "",
     asignacion: "TDC" as Asignacion,
-    proveedorId: "",
-    unidadId: "",
-    operadorId: "",
     tipoNegocioId: "",
     temperatura: "SECO" as Temperatura,
     modalidad: "RT" as Modalidad,
@@ -53,10 +39,6 @@ export default function NuevoViaje() {
     tipoMercanciaId: "",
     booking: "",
     po: "",
-    estado: "programado" as EstadoViaje,
-    km: "",
-    tarifa: "",
-    costo: "",
     notas: "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -65,7 +47,6 @@ export default function NuevoViaje() {
   const set = (k: keyof typeof form) => (v: string) =>
     setForm((f) => ({ ...f, [k]: v }) as typeof form);
 
-  const esTDC = form.asignacion === "TDC";
   const admiteSegundoContenedor = esFull(form.tipoUnidadId);
 
   const activos = <T extends { activo: boolean }>(lista: T[]) =>
@@ -91,10 +72,6 @@ export default function NuevoViaje() {
       setError("La cita de descarga no puede ser anterior a la de carga.");
       return;
     }
-    if (!esTDC && !form.proveedorId) {
-      setError("Un servicio FWD necesita proveedor asignado.");
-      return;
-    }
 
     const cliente = clientes.find((c) => c.id === form.clienteId);
 
@@ -109,10 +86,11 @@ export default function NuevoViaje() {
         citaCarga: form.citaCarga,
         citaDescarga: form.citaDescarga || form.citaCarga,
         asignacion: form.asignacion,
-        // Los campos de la otra vía se guardan vacíos, no con datos huérfanos.
-        unidadId: esTDC ? form.unidadId : "",
-        operadorId: esTDC ? form.operadorId : "",
-        proveedorId: esTDC ? "" : form.proveedorId,
+        // La unidad/operador (TDC) o el proveedor (FWD) se eligen después, en
+        // Asignación TDC/FWD: el servicio nace "por asignar".
+        unidadId: "",
+        operadorId: "",
+        proveedorId: "",
         tipoNegocioId: form.tipoNegocioId,
         temperatura: form.temperatura,
         modalidad: form.modalidad,
@@ -122,10 +100,10 @@ export default function NuevoViaje() {
         contenedor2: admiteSegundoContenedor ? form.contenedor2.trim() : "",
         booking: form.booking.trim(),
         po: form.po.trim(),
-        estado: form.estado,
-        km: Number(form.km) || 0,
-        tarifa: Number(form.tarifa) || 0,
-        costo: Number(form.costo) || 0,
+        estado: "por_asignar",
+        km: 0,
+        tarifa: 0,
+        costo: 0,
         cobro: {
           estado: "pendiente",
           factura: null,
@@ -137,8 +115,12 @@ export default function NuevoViaje() {
         monitoreo: {
           avance: 0,
           ubicacion: form.origen.trim(),
-          ultimoEvento: "Servicio dado de alta",
+          ultimoEvento: "Servicio dado de alta, pendiente de asignar",
           actualizado: new Date().toISOString(),
+          operadorManual: "",
+          medioComunicacion: "",
+          unidadManual: "",
+          placaManual: "",
         },
         notas: form.notas.trim() || undefined,
       });
@@ -156,8 +138,8 @@ export default function NuevoViaje() {
   return (
     <>
       <PageTitle
-        title="Nuevo Viaje"
-        subtitle="Folio y carta porte se asignan automáticamente al guardar."
+        title="Asignación de Servicio"
+        subtitle="Folio y carta porte se asignan automáticamente al guardar. Unidad, operador o proveedor se eligen después, en Asignación TDC/FWD."
       />
 
       <Card className="max-w-4xl p-5">
@@ -229,7 +211,8 @@ export default function NuevoViaje() {
 
           <Seccion titulo="Asignación">
             {/* Decide el resto del flujo: liquidación al operador (TDC) o
-                cuenta por pagar al proveedor (FWD). */}
+                cuenta por pagar al proveedor (FWD). La unidad/operador o el
+                proveedor se eligen después, en Asignación TDC/FWD. */}
             <Campo label="Asignación *" ancho="full">
               <div className="flex flex-wrap gap-2">
                 {(["TDC", "FWD"] as const).map((op) => (
@@ -243,56 +226,6 @@ export default function NuevoViaje() {
                 ))}
               </div>
             </Campo>
-
-            {esTDC ? (
-              <>
-                <Campo label="Unidad">
-                  <select
-                    className={campo}
-                    value={form.unidadId}
-                    onChange={(e) => set("unidadId")(e.target.value)}
-                  >
-                    <option value="">Sin asignar</option>
-                    {activos(unidades).map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.economico} — {u.tipo}
-                        {unidadDisponible(u) ? "" : ` (${u.estado})`}
-                      </option>
-                    ))}
-                  </select>
-                </Campo>
-                <Campo label="Operador">
-                  <select
-                    className={campo}
-                    value={form.operadorId}
-                    onChange={(e) => set("operadorId")(e.target.value)}
-                  >
-                    <option value="">Sin asignar</option>
-                    {activos(operadores).map((o) => (
-                      <option key={o.id} value={o.id}>
-                        {o.nombre}
-                        {operadorDisponible(o) ? "" : ` (${o.estado})`}
-                      </option>
-                    ))}
-                  </select>
-                </Campo>
-              </>
-            ) : (
-              <Campo label="Proveedor *" ancho="full">
-                <select
-                  className={campo}
-                  value={form.proveedorId}
-                  onChange={(e) => set("proveedorId")(e.target.value)}
-                >
-                  <option value="">Seleccionar proveedor</option>
-                  {activos(proveedores).map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.nombre} — {p.tipo.replace("_", " ")} ({p.diasPago} días)
-                    </option>
-                  ))}
-                </select>
-              </Campo>
-            )}
           </Seccion>
 
           <Seccion titulo="Carga">
@@ -408,52 +341,7 @@ export default function NuevoViaje() {
                 placeholder="PO-88231"
               />
             </Campo>
-          </Seccion>
 
-          <Seccion titulo="Operación y tarifa">
-            <Campo label="Kilómetros">
-              <input
-                type="number"
-                min={0}
-                className={campo}
-                value={form.km}
-                onChange={(e) => set("km")(e.target.value)}
-                placeholder="1720"
-              />
-            </Campo>
-            <Campo label="Tarifa al cliente (MXN)">
-              <input
-                type="number"
-                min={0}
-                className={campo}
-                value={form.tarifa}
-                onChange={(e) => set("tarifa")(e.target.value)}
-                placeholder="48500"
-              />
-            </Campo>
-            <Campo label={esTDC ? "Costo operativo (MXN)" : "Costo del proveedor (MXN)"}>
-              <input
-                type="number"
-                min={0}
-                className={campo}
-                value={form.costo}
-                onChange={(e) => set("costo")(e.target.value)}
-                placeholder="31400"
-              />
-            </Campo>
-            <Campo label="Estado inicial">
-              <select
-                className={campo}
-                value={form.estado}
-                onChange={(e) => set("estado")(e.target.value)}
-              >
-                {ESTADOS_VIAJE.map((e) => (
-                  <option key={e.value} value={e.value}>
-                    {e.label}
-                  </option>
-                ))}
-              </select>
-            </Campo>
             <Campo label="Notas" ancho="full">
               <textarea
                 rows={2}

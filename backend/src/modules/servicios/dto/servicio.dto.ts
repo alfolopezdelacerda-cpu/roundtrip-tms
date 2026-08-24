@@ -213,6 +213,34 @@ export class PagarDto {
   referencia: string;
 }
 
+/**
+ * Campos que se capturan a mano cuando el servicio llega a Monitoreo:
+ * operador, medio de comunicación, unidad y placa reales. No vienen de un
+ * catálogo porque en FWD son del proveedor, y en TDC pueden diferir de lo que
+ * se asignó al programar.
+ */
+export class ActualizarMonitoreoDto {
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  operadorManual?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 255)
+  medioComunicacion?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 100)
+  unidadManual?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 20)
+  placaManual?: string;
+}
+
 export class FiltroServiciosDto {
   @IsOptional()
   @IsIn(['TDC', 'FWD'])

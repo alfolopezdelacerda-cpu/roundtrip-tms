@@ -20,6 +20,7 @@ import {
 } from '../../database/entities/catalogos.entities';
 import { Conductor, Vehiculo } from '../../database/entities/transportes.entities';
 import type {
+  ActualizarMonitoreoDto,
   ActualizarServicioDto,
   CambiarEstadoDto,
   CrearServicioDto,
@@ -184,7 +185,9 @@ export class ServiciosService {
         contenedor2: relaciones.tipoUnidad?.full ? (dto.contenedor2?.trim() ?? '') : '',
         booking: dto.booking?.trim() ?? '',
         po: dto.po?.trim() ?? '',
-        estado: (dto.estado as EstadoServicio) ?? 'programado',
+        // Nace sin asignar: pasa a 'programado' solo cuando alguien elige
+        // unidad+operador o proveedor y hace clic en "Programar Servicio".
+        estado: (dto.estado as EstadoServicio) ?? 'por_asignar',
         km: dto.km ?? 0,
         tarifa: String(dto.tarifa ?? 0),
         costo: String(dto.costo ?? 0),
@@ -302,6 +305,34 @@ export class ServiciosService {
 
     await this.servicios.save(servicio);
     logger.audit({ tipo: 'servicio_estado', servicioId: id, estado: dto.estado });
+    return this.obtener(id);
+  }
+
+  /**
+   * Campos manuales de monitoreo. Separado de `actualizar()` porque lo
+   * captura el operador de tráfico desde el tablero de Monitoreo, no desde la
+   * edición general del servicio, y porque un servicio cerrado (completado o
+   * cancelado) sigue aceptando estos datos aunque ya no acepte otros cambios.
+   */
+  async actualizarMonitoreo(id: string, dto: ActualizarMonitoreoDto) {
+    const servicio = await this.exigir(id);
+
+    if (dto.operadorManual !== undefined) {
+      servicio.monitoreoOperadorManual = dto.operadorManual.trim();
+    }
+    if (dto.medioComunicacion !== undefined) {
+      servicio.monitoreoMedioComunicacion = dto.medioComunicacion.trim();
+    }
+    if (dto.unidadManual !== undefined) {
+      servicio.monitoreoUnidadManual = dto.unidadManual.trim();
+    }
+    if (dto.placaManual !== undefined) {
+      servicio.monitoreoPlacaManual = dto.placaManual.trim();
+    }
+    servicio.monitoreoActualizado = new Date();
+
+    await this.servicios.save(servicio);
+    logger.audit({ tipo: 'servicio_monitoreo_manual', servicioId: id });
     return this.obtener(id);
   }
 
@@ -545,6 +576,10 @@ export class ServiciosService {
         ubicacion: s.monitoreoUbicacion,
         ultimoEvento: s.monitoreoUltimoEvento,
         actualizado: s.monitoreoActualizado?.toISOString() ?? null,
+        operadorManual: s.monitoreoOperadorManual,
+        medioComunicacion: s.monitoreoMedioComunicacion,
+        unidadManual: s.monitoreoUnidadManual,
+        placaManual: s.monitoreoPlacaManual,
       },
       cpOrigen: s.cpOrigen,
       cpDestino: s.cpDestino,

@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useStore } from "@/lib/store";
-import { PageTitle } from "@/components/ui";
+import { Card, Empty, PageTitle } from "@/components/ui";
 import {
   TablaServicios,
   Totales,
@@ -16,12 +17,13 @@ import {
   type Columna,
 } from "@/components/servicios";
 import { mxn } from "@/lib/format";
-import { margen } from "@/lib/types";
+import { margen, rutaTexto } from "@/lib/types";
 
 /**
  * Servicios que NO ejecuta la transportadora propia: van con un proveedor
- * externo. Aquí importa el costo del proveedor, porque de él sale la cuenta
- * por pagar y el margen real del servicio.
+ * externo. Aquí solo se elige el proveedor — el operador, la unidad, la placa
+ * y el medio de comunicación reales se capturan a mano en Monitoreo, porque
+ * son del proveedor y no existen en nuestros catálogos.
  */
 export default function AsignacionFWD() {
   const { viajes, proveedor } = useStore();
@@ -29,6 +31,9 @@ export default function AsignacionFWD() {
   const externos = viajes
     .filter((v) => v.asignacion === "FWD")
     .sort((a, b) => b.citaCarga.localeCompare(a.citaCarga));
+
+  const pendientes = externos.filter((v) => v.estado === "por_asignar");
+  const asignados = externos.filter((v) => v.estado !== "por_asignar");
 
   const columnaProveedor: Columna = {
     clave: "proveedor",
@@ -62,7 +67,7 @@ export default function AsignacionFWD() {
     <>
       <PageTitle
         title="Asignación FWD"
-        subtitle="Servicios cubiertos con proveedor externo."
+        subtitle="Elige el proveedor; al programar, el servicio pasa a Monitoreo."
         action={
           <Link
             href="/viajes/nuevo"
@@ -73,30 +78,183 @@ export default function AsignacionFWD() {
         }
       />
 
-      <TablaServicios
-        viajes={externos}
-        vacio="No hay servicios asignados a proveedores externos."
-        totales={
-          <Totales
-            items={[
-              { label: "Servicios", valor: String(externos.length) },
-              { label: "Costo proveedores", valor: mxn(costos) },
-              { label: "Margen", valor: `${mxn(margenTotal)} (${pctMargen}%)` },
-            ]}
-          />
-        }
-        columnas={[
-          columnaFolio,
-          columnaRuta,
-          columnaCliente,
-          columnaProveedor,
-          columnaSalida,
-          columnaTarifa,
-          columnaCosto,
-          columnaMargen,
-          columnaEstado,
-        ]}
-      />
+      <section className="mb-8">
+        <h2 className="mb-3 text-sm font-semibold">
+          Pendientes de asignación{" "}
+          <span className="text-muted">({pendientes.length})</span>
+        </h2>
+        {pendientes.length === 0 ? (
+          <Card>
+            <Empty>No hay servicios FWD esperando proveedor.</Empty>
+          </Card>
+        ) : (
+          <div className="grid gap-4 lg:grid-cols-2">
+            {pendientes.map((v) => (
+              <TarjetaAsignacion key={v.id} viajeId={v.id} />
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section>
+        <h2 className="mb-3 text-sm font-semibold">
+          Asignados <span className="text-muted">({asignados.length})</span>
+        </h2>
+        <TablaServicios
+          viajes={asignados}
+          vacio="No hay servicios FWD programados todavía."
+          totales={
+            <Totales
+              items={[
+                { label: "Servicios", valor: String(externos.length) },
+                { label: "Costo proveedores", valor: mxn(costos) },
+                { label: "Margen", valor: `${mxn(margenTotal)} (${pctMargen}%)` },
+              ]}
+            />
+          }
+          columnas={[
+            columnaFolio,
+            columnaRuta,
+            columnaCliente,
+            columnaProveedor,
+            columnaSalida,
+            columnaTarifa,
+            columnaCosto,
+            columnaMargen,
+            columnaEstado,
+          ]}
+        />
+      </section>
     </>
+  );
+}
+
+function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
+  const { viajes, proveedores, asignar, cambiarEstado, nombreDe } = useStore();
+  const v = viajes.find((x) => x.id === viajeId);
+
+  const [proveedorId, setProveedorId] = useState(v?.proveedorId ?? "");
+  const [tarifa, setTarifa] = useState(v?.tarifa ? String(v.tarifa) : "");
+  const [costo, setCosto] = useState(v?.costo ? String(v.costo) : "");
+  const [guardando, setGuardando] = useState(false);
+  const [programando, setProgramando] = useState(false);
+
+  if (!v) return null;
+
+  const activos = proveedores.filter((p) => p.activo);
+  const listo = Boolean(proveedorId);
+
+  async function guardar() {
+    setGuardando(true);
+    try {
+      await asignar(viajeId, {
+        proveedorId,
+        tarifa: Number(tarifa) || 0,
+        costo: Number(costo) || 0,
+      });
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  async function programar() {
+    setProgramando(true);
+    try {
+      await asignar(viajeId, {
+        proveedorId,
+        tarifa: Number(tarifa) || 0,
+        costo: Number(costo) || 0,
+      });
+      await cambiarEstado(viajeId, "programado");
+    } finally {
+      setProgramando(false);
+    }
+  }
+
+  return (
+    <Card className="p-4">
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <div>
+          <p className="font-mono text-sm font-semibold">{v.folio}</p>
+          <p className="text-sm text-muted">{rutaTexto(v)}</p>
+          <p className="text-xs text-muted">{v.cliente || nombreDe("clientes", v.clienteId)}</p>
+        </div>
+        <span className="rounded-full bg-orange-50 px-2 py-0.5 text-xs font-medium text-orange-700 ring-1 ring-inset ring-orange-200">
+          Por asignar
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            Proveedor
+          </label>
+          <select
+            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
+            value={proveedorId}
+            onChange={(e) => setProveedorId(e.target.value)}
+          >
+            <option value="">Seleccionar proveedor</option>
+            {activos.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.nombre} — {p.tipo.replace("_", " ")} ({p.diasPago} días)
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            Tarifa al cliente (MXN)
+          </label>
+          <input
+            type="number"
+            min={0}
+            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
+            value={tarifa}
+            onChange={(e) => setTarifa(e.target.value)}
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            Costo del proveedor (MXN)
+          </label>
+          <input
+            type="number"
+            min={0}
+            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
+            value={costo}
+            onChange={(e) => setCosto(e.target.value)}
+          />
+        </div>
+      </div>
+
+      <p className="mt-2 text-xs text-muted">
+        Operador, medio de comunicación, unidad y placa se capturan a mano cuando el
+        servicio caiga en Monitoreo.
+      </p>
+
+      <div className="mt-4 flex gap-2">
+        <button
+          type="button"
+          onClick={guardar}
+          disabled={guardando || programando}
+          className="rounded-md border border-line px-3 py-2 text-sm font-medium hover:bg-black/[0.03] disabled:opacity-60"
+        >
+          {guardando ? "Guardando…" : "Guardar asignación"}
+        </button>
+        <button
+          type="button"
+          onClick={programar}
+          disabled={!listo || guardando || programando}
+          className="rounded-md bg-amber px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+        >
+          {programando ? "Programando…" : "Programar Servicio"}
+        </button>
+      </div>
+      {!listo ? (
+        <p className="mt-2 text-xs text-muted">Elige un proveedor para poder programar el servicio.</p>
+      ) : null}
+    </Card>
   );
 }

@@ -1,4 +1,5 @@
 export type EstadoViaje =
+  | "por_asignar"
   | "programado"
   | "en_ruta_ida"
   | "en_destino"
@@ -104,6 +105,11 @@ export type Viaje = {
     ubicacion: string;
     ultimoEvento: string;
     actualizado: string; // ISO
+    /** Captura manual al caer en Monitoreo: no viene de catálogo. */
+    operadorManual: string;
+    medioComunicacion: string;
+    unidadManual: string;
+    placaManual: string;
   };
 
   notas?: string;
@@ -138,6 +144,7 @@ export type Proveedor = {
 };
 
 export const ESTADOS_VIAJE: { value: EstadoViaje; label: string }[] = [
+  { value: "por_asignar", label: "Por asignar" },
   { value: "programado", label: "Programado" },
   { value: "en_ruta_ida", label: "En ruta (ida)" },
   { value: "en_destino", label: "En destino" },
@@ -152,6 +159,7 @@ export const ESTADO_LABEL: Record<EstadoViaje, string> = ESTADOS_VIAJE.reduce(
 );
 
 export const ESTADO_CLASS: Record<EstadoViaje, string> = {
+  por_asignar: "bg-orange-50 text-orange-700 ring-orange-200 ring-dashed",
   programado: "bg-slate-100 text-slate-700 ring-slate-200",
   en_ruta_ida: "bg-blue-50 text-blue-700 ring-blue-200",
   en_destino: "bg-violet-50 text-violet-700 ring-violet-200",
@@ -258,6 +266,18 @@ export function unidadDisponible(u: Unidad): boolean {
 
 export function operadorDisponible(o: Operador): boolean {
   return o.activo && (o.estado === "activo" || o.estado === "disponible");
+}
+
+/**
+ * Un servicio "por asignar" solo pasa a Monitoreo cuando alguien completó su
+ * asignación (unidad+operador en TDC, proveedor en FWD) y le dio "Programar
+ * Servicio". Esto decide si ese botón se habilita.
+ */
+export function listoParaProgramar(v: Viaje): boolean {
+  if (v.estado !== "por_asignar") return false;
+  return v.asignacion === "TDC"
+    ? Boolean(v.unidadId && v.operadorId)
+    : Boolean(v.proveedorId);
 }
 
 /** Fecha de referencia del servicio para ordenar y agrupar. */

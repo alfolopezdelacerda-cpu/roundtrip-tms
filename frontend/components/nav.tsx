@@ -8,7 +8,7 @@ import { useStore } from "@/lib/store";
 /**
  * Menú principal, en el orden del flujo operativo: se da de alta el servicio,
  * se asigna (a la transportadora o a un proveedor), se monitorea y al cerrar
- * pasa a cobranza, pago y liquidación.
+ * pasa a cobranza, pago y liquidación. Vive como barra lateral a la derecha.
  */
 const links = [
   { href: "/viajes/nuevo", label: "Nuevo Viaje" },
@@ -47,8 +47,8 @@ export function Nav() {
   }
 
   return (
-    <header className="sticky top-0 z-10 border-b border-line bg-ink text-[#F2F3EF]">
-      <div className="flex flex-wrap items-center gap-x-5 gap-y-2 px-4 py-3 sm:px-6">
+    <header className="sticky top-0 z-10 flex h-fit w-full flex-col border-b border-line bg-ink text-[#F2F3EF] sm:h-screen sm:w-60 sm:shrink-0 sm:border-b-0 sm:border-l">
+      <div className="flex items-center gap-2 px-4 py-4">
         <Link
           href="/"
           onClick={alClicLogo}
@@ -57,53 +57,53 @@ export function Nav() {
         >
           Roundtrip <span className="text-amber">TMS</span>
         </Link>
+      </div>
 
-        <nav className="flex flex-wrap items-center gap-1 text-sm">
-          {links.map((l) => {
-            const activo = pathname.startsWith(l.href);
-            return (
-              <Link
-                key={l.href}
-                href={l.href}
-                className={`rounded-md px-2.5 py-1.5 transition-colors ${
-                  activo
-                    ? "bg-white/15 font-medium text-white"
-                    : "text-white/70 hover:bg-white/10 hover:text-white"
-                }`}
-              >
-                {l.label}
-              </Link>
-            );
-          })}
-        </nav>
+      <nav className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 py-1 text-sm">
+        {links.map((l) => {
+          const activo = pathname.startsWith(l.href);
+          return (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`rounded-md px-3 py-2 transition-colors ${
+                activo
+                  ? "bg-white/15 font-medium text-white"
+                  : "text-white/70 hover:bg-white/10 hover:text-white"
+              }`}
+            >
+              {l.label}
+            </Link>
+          );
+        })}
+      </nav>
 
-        <div className="ml-auto flex items-center gap-3">
-          {pathname.startsWith("/admin") ? (
-            <span className="rounded-full bg-amber/20 px-2.5 py-0.5 text-xs font-medium text-amber">
-              Administrador
+      <div className="flex flex-col gap-2 border-t border-white/10 px-4 py-3">
+        {pathname.startsWith("/admin") ? (
+          <span className="w-fit rounded-full bg-amber/20 px-2.5 py-0.5 text-xs font-medium text-amber">
+            Administrador
+          </span>
+        ) : null}
+
+        {modo === "demo" ? (
+          <span className="w-fit rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/70">
+            demo
+          </span>
+        ) : null}
+
+        {usuario ? (
+          <>
+            <span className="truncate text-xs text-white/70">
+              {usuario.email} · {usuario.role}
             </span>
-          ) : null}
-
-          {modo === "demo" ? (
-            <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/70">
-              demo
-            </span>
-          ) : null}
-
-          {usuario ? (
-            <>
-              <span className="hidden text-xs text-white/70 sm:inline">
-                {usuario.email} · {usuario.role}
-              </span>
-              <button
-                onClick={() => void salir()}
-                className="rounded-md px-2.5 py-1.5 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
-              >
-                Salir
-              </button>
-            </>
-          ) : null}
-        </div>
+            <button
+              onClick={() => void salir()}
+              className="w-fit rounded-md px-2.5 py-1.5 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+            >
+              Salir
+            </button>
+          </>
+        ) : null}
       </div>
     </header>
   );

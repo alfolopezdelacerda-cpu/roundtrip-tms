@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ServiciosService } from './servicios.service';
 import {
+  ActualizarMonitoreoDto,
   ActualizarServicioDto,
   CambiarEstadoDto,
   CrearServicioDto,
@@ -59,6 +60,17 @@ export class ServiciosController {
     @Body() dto: ActualizarServicioDto,
   ) {
     return this.servicios.actualizar(id, dto);
+  }
+
+  /** Datos manuales que se capturan cuando el servicio cae en Monitoreo. */
+  @Patch(':id/monitoreo')
+  @Roles('admin', 'manager', 'dispatcher')
+  @UseGuards(RolesGuard)
+  actualizarMonitoreo(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ActualizarMonitoreoDto,
+  ) {
+    return this.servicios.actualizarMonitoreo(id, dto);
   }
 
   /** Monitoreo: el operador de tráfico mueve el estado y el avance. */

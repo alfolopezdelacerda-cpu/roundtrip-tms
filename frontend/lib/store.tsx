@@ -20,6 +20,8 @@ import {
 import {
   crearFuente,
   type Datos,
+  type DatosAsignacion,
+  type DatosMonitoreoManual,
   type FuenteDatos,
   type Modo,
   type ResultadoBorrado,
@@ -56,6 +58,8 @@ type Store = {
   recargar: () => Promise<void>;
 
   agregarViaje: (v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => Promise<Viaje>;
+  asignar: (id: string, datos: DatosAsignacion) => Promise<void>;
+  actualizarMonitoreo: (id: string, datos: DatosMonitoreoManual) => Promise<void>;
   cambiarEstado: (id: string, estado: EstadoViaje) => Promise<void>;
   facturar: (id: string, factura: string, fechaFactura: string) => Promise<void>;
   marcarCobrado: (id: string) => Promise<void>;
@@ -245,6 +249,9 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         return creado;
       },
 
+      asignar: (id, datosAsignacion) => accion(() => f.asignar(id, datosAsignacion)),
+      actualizarMonitoreo: (id, datosMonitoreo) =>
+        accion(() => f.actualizarMonitoreo(id, datosMonitoreo)),
       cambiarEstado: (id, estado) => accion(() => f.cambiarEstado(id, estado)),
       facturar: (id, factura, fecha) => accion(() => f.facturar(id, factura, fecha)),
       marcarCobrado: (id) => accion(() => f.marcarCobrado(id)),
