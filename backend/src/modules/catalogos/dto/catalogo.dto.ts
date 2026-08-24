@@ -64,16 +64,42 @@ export class CatalogoDto {
   @IsOptional()
   @IsString()
   @Length(1, 20)
-  placa?: string;
+  placas?: string;
+
+  /**
+   * Tipo: de unidad (full_trailer…) o de proveedor (transportista…). Se
+   * validan juntos porque el controlador es genérico; el repositorio rechaza
+   * el valor que no corresponda a su tabla.
+   */
+  @IsOptional()
+  @IsIn([
+    'full_trailer',
+    'sencillo',
+    'rabon',
+    'pickup',
+    'transportista',
+    'agente_aduanal',
+    'almacen',
+    'seguros',
+  ])
+  tipo?: string;
+
+  // --- proveedores ---
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(365)
+  diasPago?: number;
 
   @IsOptional()
-  @IsIn(['full_trailer', 'sencillo', 'rabon', 'pickup'])
-  tipo?: string;
+  @IsString()
+  @Length(1, 255)
+  contacto?: string;
 
   @IsOptional()
   @IsNumber()
   @Min(0)
-  capacidadToneladas?: number;
+  capacidadTon?: number;
 
   // --- unidades: datos del complemento Carta Porte ---
   @IsOptional()

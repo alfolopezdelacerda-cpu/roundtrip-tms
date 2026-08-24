@@ -4,6 +4,7 @@ import { transportesDataSource } from '../data-source';
 import { User } from '../../modules/auth/entities/user.entity';
 import {
   Cliente,
+  Proveedor,
   Puerto,
   TipoMercancia,
   TipoNegocio,
@@ -110,6 +111,13 @@ async function main() {
     { nombre: 'Textiles del Valle', diasCredito: 45 },
   ]);
 
+  const proveedores = await ds.getRepository(Proveedor).save([
+    { nombre: 'Fletes del Golfo', tipo: 'transportista', diasPago: 30 },
+    { nombre: 'Autotransportes Bajío', tipo: 'transportista', diasPago: 45 },
+    { nombre: 'Aduanal Terán y Asoc.', tipo: 'agente_aduanal', diasPago: 15 },
+    { nombre: 'Almacenes Pacífico', tipo: 'almacen', diasPago: 30 },
+  ]);
+
   // ---- Flota ----
   const vehiculos = await ds.getRepository(Vehiculo).save([
     { economico: 'T-101', placa: 'AB-472-XC', tipo: 'full_trailer' as const, capacidadToneladas: '30.00', estado: 'operativo' as const },
@@ -169,7 +177,7 @@ async function main() {
       citaCarga: new Date('2026-08-13T05:00:00Z'),
       citaDescarga: new Date('2026-08-14T11:00:00Z'),
       asignacion: 'FWD',
-      proveedorId: null,
+      proveedorId: proveedores[0].id,
       tipoNegocio: tiposNegocio[2],
       tipoUnidad: tiposUnidad[3],
       tipoMercancia: tiposMercancia[4],
@@ -216,7 +224,8 @@ async function main() {
 
   console.log(
     `Sembrado: ${clientes.length} clientes, ${puertos.length} puertos, ` +
-      `${vehiculos.length} unidades, ${conductores.length} operadores, 3 servicios.`,
+      `${vehiculos.length} unidades, ${conductores.length} operadores, ` +
+      `${proveedores.length} proveedores, 3 servicios.`,
   );
 
   await ds.destroy();

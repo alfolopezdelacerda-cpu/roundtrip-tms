@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useRef } from "react";
+import { useStore } from "@/lib/store";
 
 /**
  * Menú principal, en el orden del flujo operativo: se da de alta el servicio,
@@ -27,6 +28,7 @@ export function Nav() {
   const pathname = usePathname();
   const router = useRouter();
   const clics = useRef<number[]>([]);
+  const { usuario, salir, modo } = useStore();
 
   /**
    * El logo sigue llevando al tablero con un clic normal. Tres clics seguidos
@@ -75,11 +77,33 @@ export function Nav() {
           })}
         </nav>
 
-        {pathname.startsWith("/admin") ? (
-          <span className="ml-auto rounded-full bg-amber/20 px-2.5 py-0.5 text-xs font-medium text-amber">
-            Administrador
-          </span>
-        ) : null}
+        <div className="ml-auto flex items-center gap-3">
+          {pathname.startsWith("/admin") ? (
+            <span className="rounded-full bg-amber/20 px-2.5 py-0.5 text-xs font-medium text-amber">
+              Administrador
+            </span>
+          ) : null}
+
+          {modo === "demo" ? (
+            <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs text-white/70">
+              demo
+            </span>
+          ) : null}
+
+          {usuario ? (
+            <>
+              <span className="hidden text-xs text-white/70 sm:inline">
+                {usuario.email} · {usuario.role}
+              </span>
+              <button
+                onClick={() => void salir()}
+                className="rounded-md px-2.5 py-1.5 text-sm text-white/70 transition-colors hover:bg-white/10 hover:text-white"
+              >
+                Salir
+              </button>
+            </>
+          ) : null}
+        </div>
       </div>
     </header>
   );

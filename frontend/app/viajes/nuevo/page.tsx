@@ -5,6 +5,8 @@ import { useState, type ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import {
   ESTADOS_VIAJE,
+  operadorDisponible,
+  unidadDisponible,
   type Asignacion,
   type EstadoViaje,
   type Modalidad,
@@ -58,6 +60,7 @@ export default function NuevoViaje() {
     notas: "",
   });
   const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
 
   const set = (k: keyof typeof form) => (v: string) =>
     setForm((f) => ({ ...f, [k]: v }) as typeof form);
@@ -68,7 +71,7 @@ export default function NuevoViaje() {
   const activos = <T extends { activo: boolean }>(lista: T[]) =>
     lista.filter((i) => i.activo);
 
-  function guardar(e: React.FormEvent) {
+  async function guardar(e: React.FormEvent) {
     e.preventDefault();
 
     // Obligatorios marcados con * en la especificación del alta.
@@ -95,50 +98,59 @@ export default function NuevoViaje() {
 
     const cliente = clientes.find((c) => c.id === form.clienteId);
 
-    const creado = agregarViaje({
-      clienteId: form.clienteId,
-      cliente: cliente?.nombre ?? "",
-      origen: form.origen.trim(),
-      destino: form.destino.trim(),
-      puertoId: form.puertoId,
-      citaCarga: form.citaCarga,
-      citaDescarga: form.citaDescarga || form.citaCarga,
-      asignacion: form.asignacion,
-      // Los campos de la otra vía se guardan vacíos, no con datos huérfanos.
-      unidadId: esTDC ? form.unidadId : "",
-      operadorId: esTDC ? form.operadorId : "",
-      proveedorId: esTDC ? "" : form.proveedorId,
-      tipoNegocioId: form.tipoNegocioId,
-      temperatura: form.temperatura,
-      modalidad: form.modalidad,
-      tipoUnidadId: form.tipoUnidadId,
-      tipoMercanciaId: form.tipoMercanciaId,
-      contenedor1: form.contenedor1.trim(),
-      contenedor2: admiteSegundoContenedor ? form.contenedor2.trim() : "",
-      booking: form.booking.trim(),
-      po: form.po.trim(),
-      estado: form.estado,
-      km: Number(form.km) || 0,
-      tarifa: Number(form.tarifa) || 0,
-      costo: Number(form.costo) || 0,
-      cobro: {
-        estado: "pendiente",
-        factura: null,
-        fechaFactura: null,
-        diasCredito: cliente?.diasCredito ?? 30,
-      },
-      pago: { estado: "pendiente", referencia: null, fechaPago: null },
-      liquidacion: { estado: "pendiente", fecha: null },
-      monitoreo: {
-        avance: 0,
-        ubicacion: form.origen.trim(),
-        ultimoEvento: "Servicio dado de alta",
-        actualizado: new Date().toISOString(),
-      },
-      notas: form.notas.trim() || undefined,
-    });
+    setGuardando(true);
+    try {
+      const creado = await agregarViaje({
+        clienteId: form.clienteId,
+        cliente: cliente?.nombre ?? "",
+        origen: form.origen.trim(),
+        destino: form.destino.trim(),
+        puertoId: form.puertoId,
+        citaCarga: form.citaCarga,
+        citaDescarga: form.citaDescarga || form.citaCarga,
+        asignacion: form.asignacion,
+        // Los campos de la otra vía se guardan vacíos, no con datos huérfanos.
+        unidadId: esTDC ? form.unidadId : "",
+        operadorId: esTDC ? form.operadorId : "",
+        proveedorId: esTDC ? "" : form.proveedorId,
+        tipoNegocioId: form.tipoNegocioId,
+        temperatura: form.temperatura,
+        modalidad: form.modalidad,
+        tipoUnidadId: form.tipoUnidadId,
+        tipoMercanciaId: form.tipoMercanciaId,
+        contenedor1: form.contenedor1.trim(),
+        contenedor2: admiteSegundoContenedor ? form.contenedor2.trim() : "",
+        booking: form.booking.trim(),
+        po: form.po.trim(),
+        estado: form.estado,
+        km: Number(form.km) || 0,
+        tarifa: Number(form.tarifa) || 0,
+        costo: Number(form.costo) || 0,
+        cobro: {
+          estado: "pendiente",
+          factura: null,
+          fechaFactura: null,
+          diasCredito: cliente?.diasCredito ?? 30,
+        },
+        pago: { estado: "pendiente", referencia: null, fechaPago: null },
+        liquidacion: { estado: "pendiente", fecha: null },
+        monitoreo: {
+          avance: 0,
+          ubicacion: form.origen.trim(),
+          ultimoEvento: "Servicio dado de alta",
+          actualizado: new Date().toISOString(),
+        },
+        notas: form.notas.trim() || undefined,
+      });
 
-    router.push(`/viajes/${creado.id}`);
+      router.push(`/viajes/${creado.id}`);
+    } catch (err) {
+      // El backend valida más que el formulario (claves de catálogo, fechas):
+      // su mensaje es el que hay que mostrar.
+      setError(err instanceof Error ? err.message : "No se pudo guardar el viaje");
+    } finally {
+      setGuardando(false);
+    }
   }
 
   return (
@@ -244,7 +256,7 @@ export default function NuevoViaje() {
                     {activos(unidades).map((u) => (
                       <option key={u.id} value={u.id}>
                         {u.economico} — {u.tipo}
-                        {u.estado === "disponible" ? "" : ` (${u.estado})`}
+                        {unidadDisponible(u) ? "" : ` (${u.estado})`}
                       </option>
                     ))}
                   </select>
@@ -259,7 +271,7 @@ export default function NuevoViaje() {
                     {activos(operadores).map((o) => (
                       <option key={o.id} value={o.id}>
                         {o.nombre}
-                        {o.estado === "disponible" ? "" : ` (${o.estado})`}
+                        {operadorDisponible(o) ? "" : ` (${o.estado})`}
                       </option>
                     ))}
                   </select>
@@ -462,9 +474,10 @@ export default function NuevoViaje() {
           <div className="flex gap-2">
             <button
               type="submit"
-              className="rounded-md bg-amber px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              disabled={guardando}
+              className="rounded-md bg-amber px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
             >
-              Guardar viaje
+              {guardando ? "Guardando…" : "Guardar viaje"}
             </button>
             <button
               type="button"

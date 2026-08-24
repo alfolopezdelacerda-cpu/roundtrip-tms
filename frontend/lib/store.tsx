@@ -6,20 +6,25 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
-import { operadoresSeed, proveedoresSeed, unidadesSeed, viajesSeed } from "./seed";
 import {
-  clientesSeed,
-  puertosSeed,
-  tiposMercanciaSeed,
-  tiposNegocioSeed,
-  tiposUnidadSeed,
-  type ClaveCatalogo,
-  type Cliente,
-  type ItemCatalogo,
-  type TipoUnidad,
-} from "./catalogos";
+  alPerderSesion,
+  cerrarSesion as cerrarSesionApi,
+  hayApi,
+  iniciarSesion as iniciarSesionApi,
+  leerSesion,
+  type Sesion,
+} from "./api";
+import {
+  crearFuente,
+  type Datos,
+  type FuenteDatos,
+  type Modo,
+  type ResultadoBorrado,
+} from "./datos";
+import type { ClaveCatalogo, Cliente, ItemCatalogo, TipoUnidad } from "./catalogos";
 import type {
   EstadoViaje,
   Operador,
@@ -28,11 +33,14 @@ import type {
   Viaje,
 } from "./types";
 
-// Se versiona la clave en cada cambio de esquema: los datos guardados con el
-// modelo anterior ya no encajan y es preferible partir del seed nuevo.
-const STORAGE_KEY = "roundtrip-tms:v3";
+type Store = {
+  modo: Modo;
+  cargando: boolean;
+  error: string | null;
+  /** Con API configurada y sin sesión válida, la aplicación pide entrar. */
+  necesitaLogin: boolean;
+  usuario: Sesion["usuario"] | null;
 
-type Data = {
   viajes: Viaje[];
   clientes: Cliente[];
   proveedores: Proveedor[];
@@ -42,62 +50,50 @@ type Data = {
   tiposNegocio: ItemCatalogo[];
   tiposUnidad: TipoUnidad[];
   tiposMercancia: ItemCatalogo[];
-};
 
-/** Cualquier registro de catálogo: todos comparten id y nombre. */
-type RegistroCatalogo = { id: string; nombre?: string; activo: boolean } & Record<
-  string,
-  unknown
->;
+  entrar: (email: string, password: string, mfaCode?: string) => Promise<void>;
+  salir: () => Promise<void>;
+  recargar: () => Promise<void>;
 
-type Store = Data & {
-  hidratado: boolean;
+  agregarViaje: (v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => Promise<Viaje>;
+  cambiarEstado: (id: string, estado: EstadoViaje) => Promise<void>;
+  facturar: (id: string, factura: string, fechaFactura: string) => Promise<void>;
+  marcarCobrado: (id: string) => Promise<void>;
+  autorizarPago: (id: string) => Promise<void>;
+  marcarPagado: (id: string, referencia: string) => Promise<void>;
+  liquidar: (id: string) => Promise<void>;
 
-  agregarViaje: (v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => Viaje;
-  cambiarEstado: (id: string, estado: EstadoViaje) => void;
-  facturar: (id: string, factura: string, fechaFactura: string) => void;
-  marcarCobrado: (id: string) => void;
-  autorizarPago: (id: string) => void;
-  marcarPagado: (id: string, referencia: string) => void;
-  liquidar: (id: string) => void;
-
-  agregarCatalogo: (clave: ClaveCatalogo, item: Record<string, unknown>) => void;
+  agregarCatalogo: (clave: ClaveCatalogo, item: Record<string, unknown>) => Promise<void>;
   actualizarCatalogo: (
     clave: ClaveCatalogo,
     id: string,
     cambios: Record<string, unknown>,
-  ) => void;
-  eliminarCatalogo: (clave: ClaveCatalogo, id: string) => void;
-  /** Cuántos servicios usan un registro de catálogo (para no borrar a ciegas). */
+  ) => Promise<void>;
+  eliminarCatalogo: (clave: ClaveCatalogo, id: string) => Promise<ResultadoBorrado>;
   usosDeCatalogo: (clave: ClaveCatalogo, id: string) => number;
 
   unidad: (id: string) => Unidad | undefined;
   operador: (id: string) => Operador | undefined;
   proveedor: (id: string) => Proveedor | undefined;
-  /** Nombre de un registro de catálogo, o "—" si ya no existe. */
   nombreDe: (clave: ClaveCatalogo, id: string) => string;
-  /** Nombre de quien ejecuta el servicio: operador propio o proveedor. */
   ejecutor: (v: Viaje) => string;
-  /** Si el tipo de unidad del servicio admite un segundo contenedor. */
   esFull: (tipoUnidadId: string) => boolean;
-
-  reiniciar: () => void;
 };
 
-const seed: Data = {
-  viajes: viajesSeed,
-  clientes: clientesSeed,
-  proveedores: proveedoresSeed,
-  unidades: unidadesSeed,
-  operadores: operadoresSeed,
-  puertos: puertosSeed,
-  tiposNegocio: tiposNegocioSeed,
-  tiposUnidad: tiposUnidadSeed,
-  tiposMercancia: tiposMercanciaSeed,
+const VACIO: Datos = {
+  viajes: [],
+  clientes: [],
+  proveedores: [],
+  unidades: [],
+  operadores: [],
+  puertos: [],
+  tiposNegocio: [],
+  tiposUnidad: [],
+  tiposMercancia: [],
 };
 
-/** Campo de cada servicio que apunta a un catálogo, para contar usos. */
-const CAMPO_DE_CATALOGO: Record<ClaveCatalogo, keyof Viaje> = {
+/** Campo del viaje que apunta a cada catálogo, para contar usos. */
+const CAMPO_EN_VIAJE: Record<ClaveCatalogo, keyof Viaje> = {
   clientes: "clienteId",
   proveedores: "proveedorId",
   unidades: "unidadId",
@@ -111,186 +107,178 @@ const CAMPO_DE_CATALOGO: Record<ClaveCatalogo, keyof Viaje> = {
 const StoreContext = createContext<Store | null>(null);
 
 export function StoreProvider({ children }: { children: React.ReactNode }) {
-  const [data, setData] = useState<Data>(seed);
-  const [hidratado, setHidratado] = useState(false);
+  const fuente = useRef<FuenteDatos>(undefined as unknown as FuenteDatos);
+  if (!fuente.current) fuente.current = crearFuente();
 
-  useEffect(() => {
+  const [datos, setDatos] = useState<Datos>(VACIO);
+  const [cargando, setCargando] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [usuario, setUsuario] = useState<Sesion["usuario"] | null>(null);
+  // Solo el modo API exige sesión; en demostración se entra directo.
+  const [necesitaLogin, setNecesitaLogin] = useState(hayApi);
+
+  const cargar = useCallback(async () => {
+    setCargando(true);
+    setError(null);
     try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        // Se fusiona con el seed para que una versión guardada sin algún
-        // catálogo nuevo no deje la pantalla en blanco.
-        setData({ ...seed, ...(JSON.parse(raw) as Partial<Data>) });
-      }
-    } catch {
-      // almacenamiento no disponible: se sigue con los datos demo
+      setDatos(await fuente.current.cargar());
+    } catch (e) {
+      setDatos(VACIO);
+      setError(e instanceof Error ? e.message : "No se pudieron cargar los datos");
+    } finally {
+      setCargando(false);
     }
-    setHidratado(true);
   }, []);
 
+  // Arranque: en modo API se espera a tener sesión antes de pedir nada.
   useEffect(() => {
-    if (!hidratado) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    } catch {
-      // ignorar cuota / modo privado
+    if (!hayApi) {
+      setNecesitaLogin(false);
+      void cargar();
+      return;
     }
-  }, [data, hidratado]);
 
-  const actualizar = useCallback((id: string, cambio: (v: Viaje) => Viaje) => {
-    setData((prev) => ({
+    const sesion = leerSesion();
+    if (sesion?.accessToken) {
+      setUsuario(sesion.usuario ?? null);
+      setNecesitaLogin(false);
+      void cargar();
+    } else {
+      setCargando(false);
+    }
+  }, [cargar]);
+
+  // El cliente HTTP avisa cuando el refresh token ya no sirve.
+  useEffect(
+    () =>
+      alPerderSesion(() => {
+        setUsuario(null);
+        setNecesitaLogin(true);
+        setDatos(VACIO);
+      }),
+    [],
+  );
+
+  const entrar = useCallback(
+    async (email: string, password: string, mfaCode?: string) => {
+      const perfil = await iniciarSesionApi(email, password, mfaCode);
+      setUsuario(perfil ?? null);
+      setNecesitaLogin(false);
+      await cargar();
+    },
+    [cargar],
+  );
+
+  const salir = useCallback(async () => {
+    await cerrarSesionApi();
+    setUsuario(null);
+    setNecesitaLogin(true);
+    setDatos(VACIO);
+  }, []);
+
+  /** Reemplaza en la lista el viaje que la acción devolvió actualizado. */
+  const reemplazar = useCallback((v: Viaje) => {
+    setDatos((prev) => ({
       ...prev,
-      viajes: prev.viajes.map((v) => (v.id === id ? cambio(v) : v)),
+      viajes: prev.viajes.map((x) => (x.id === v.id ? v : x)),
     }));
   }, []);
 
-  const agregarViaje = useCallback((v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => {
-    const creado = { ...v, id: `v${Date.now()}`, folio: "", cartaPorte: "" } as Viaje;
-    setData((prev) => {
-      // Folio y carta porte se derivan del consecutivo más alto ya existente.
-      const consecutivo =
-        prev.viajes.reduce((m, x) => {
-          const n = Number(x.folio.replace(/\D/g, ""));
-          return Number.isFinite(n) && n > m ? n : m;
-        }, 2600) + 1;
-
-      creado.folio = `RT-${consecutivo}`;
-      creado.cartaPorte = `CP-${new Date().getFullYear()}-${consecutivo}`;
-      return { ...prev, viajes: [creado, ...prev.viajes] };
-    });
-    return creado;
-  }, []);
-
-  const cambiarEstado = useCallback(
-    (id: string, estado: EstadoViaje) =>
-      actualizar(id, (v) => ({
-        ...v,
-        estado,
-        monitoreo: {
-          ...v.monitoreo,
-          avance: estado === "completado" ? 100 : v.monitoreo.avance,
-          actualizado: new Date().toISOString(),
-        },
-      })),
-    [actualizar],
+  /**
+   * Envuelve una acción sobre un servicio: si el backend la rechaza, el
+   * mensaje se muestra en pantalla en vez de perderse en la consola.
+   */
+  const accion = useCallback(
+    async (ejecutar: () => Promise<Viaje>) => {
+      try {
+        setError(null);
+        reemplazar(await ejecutar());
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "La operación falló");
+      }
+    },
+    [reemplazar],
   );
-
-  const facturar = useCallback(
-    (id: string, factura: string, fechaFactura: string) =>
-      actualizar(id, (v) => ({
-        ...v,
-        cobro: { ...v.cobro, estado: "facturado", factura, fechaFactura },
-      })),
-    [actualizar],
-  );
-
-  const marcarCobrado = useCallback(
-    (id: string) =>
-      actualizar(id, (v) => ({ ...v, cobro: { ...v.cobro, estado: "cobrado" } })),
-    [actualizar],
-  );
-
-  const autorizarPago = useCallback(
-    (id: string) =>
-      actualizar(id, (v) => ({ ...v, pago: { ...v.pago, estado: "autorizado" } })),
-    [actualizar],
-  );
-
-  const marcarPagado = useCallback(
-    (id: string, referencia: string) =>
-      actualizar(id, (v) => ({
-        ...v,
-        pago: {
-          estado: "pagado",
-          referencia,
-          fechaPago: new Date().toISOString().slice(0, 10),
-        },
-      })),
-    [actualizar],
-  );
-
-  const liquidar = useCallback(
-    (id: string) =>
-      actualizar(id, (v) => ({
-        ...v,
-        liquidacion: {
-          estado: "liquidado",
-          fecha: new Date().toISOString().slice(0, 10),
-        },
-      })),
-    [actualizar],
-  );
-
-  // ---- Catálogos ----
-
-  const agregarCatalogo = useCallback(
-    (clave: ClaveCatalogo, item: Record<string, unknown>) =>
-      setData((prev) => {
-        const lista = prev[clave] as RegistroCatalogo[];
-        const nuevo = {
-          ...item,
-          id: `${clave.slice(0, 2)}${Date.now()}`,
-          activo: true,
-        } as RegistroCatalogo;
-        return { ...prev, [clave]: [...lista, nuevo] };
-      }),
-    [],
-  );
-
-  const actualizarCatalogo = useCallback(
-    (clave: ClaveCatalogo, id: string, cambios: Record<string, unknown>) =>
-      setData((prev) => {
-        const lista = prev[clave] as RegistroCatalogo[];
-        return {
-          ...prev,
-          [clave]: lista.map((i) => (i.id === id ? { ...i, ...cambios } : i)),
-        };
-      }),
-    [],
-  );
-
-  const eliminarCatalogo = useCallback(
-    (clave: ClaveCatalogo, id: string) =>
-      setData((prev) => {
-        const lista = prev[clave] as RegistroCatalogo[];
-        return { ...prev, [clave]: lista.filter((i) => i.id !== id) };
-      }),
-    [],
-  );
-
-  const reiniciar = useCallback(() => setData(seed), []);
 
   const value = useMemo<Store>(() => {
-    const unidad = (id: string) => data.unidades.find((u) => u.id === id);
-    const operador = (id: string) => data.operadores.find((o) => o.id === id);
-    const proveedor = (id: string) => data.proveedores.find((p) => p.id === id);
+    const f = fuente.current;
+
+    const unidad = (id: string) => datos.unidades.find((u) => u.id === id) as Unidad | undefined;
+    const operador = (id: string) =>
+      datos.operadores.find((o) => o.id === id) as Operador | undefined;
+    const proveedor = (id: string) =>
+      datos.proveedores.find((p) => p.id === id) as Proveedor | undefined;
 
     const nombreDe = (clave: ClaveCatalogo, id: string) => {
-      const lista = data[clave] as RegistroCatalogo[];
-      const item = lista.find((i) => i.id === id);
+      const item = datos[clave].find((i) => i.id === id) as
+        | Record<string, unknown>
+        | undefined;
       if (!item) return "—";
-      // Unidades y operadores no tienen `nombre`: se identifican distinto.
-      if (clave === "unidades") return (item as unknown as Unidad).economico;
-      return (item.nombre as string) ?? "—";
+      if (clave === "unidades") return String(item.economico ?? "—");
+      return String(item.nombre ?? "—");
     };
 
     return {
-      ...data,
-      hidratado,
-      agregarViaje,
-      cambiarEstado,
-      facturar,
-      marcarCobrado,
-      autorizarPago,
-      marcarPagado,
-      liquidar,
-      agregarCatalogo,
-      actualizarCatalogo,
-      eliminarCatalogo,
-      usosDeCatalogo: (clave, id) => {
-        const campo = CAMPO_DE_CATALOGO[clave];
-        return data.viajes.filter((v) => v[campo] === id).length;
+      modo: f.modo,
+      cargando,
+      error,
+      necesitaLogin,
+      usuario,
+
+      viajes: datos.viajes,
+      clientes: datos.clientes as unknown as Cliente[],
+      proveedores: datos.proveedores as unknown as Proveedor[],
+      unidades: datos.unidades as unknown as Unidad[],
+      operadores: datos.operadores as unknown as Operador[],
+      puertos: datos.puertos as unknown as ItemCatalogo[],
+      tiposNegocio: datos.tiposNegocio as unknown as ItemCatalogo[],
+      tiposUnidad: datos.tiposUnidad as unknown as TipoUnidad[],
+      tiposMercancia: datos.tiposMercancia as unknown as ItemCatalogo[],
+
+      entrar,
+      salir,
+      recargar: cargar,
+
+      agregarViaje: async (v) => {
+        const creado = await f.crearViaje(v);
+        setDatos((prev) => ({ ...prev, viajes: [creado, ...prev.viajes] }));
+        return creado;
       },
+
+      cambiarEstado: (id, estado) => accion(() => f.cambiarEstado(id, estado)),
+      facturar: (id, factura, fecha) => accion(() => f.facturar(id, factura, fecha)),
+      marcarCobrado: (id) => accion(() => f.marcarCobrado(id)),
+      autorizarPago: (id) => accion(() => f.autorizarPago(id)),
+      marcarPagado: (id, referencia) => accion(() => f.marcarPagado(id, referencia)),
+      liquidar: (id) => accion(() => f.liquidar(id)),
+
+      agregarCatalogo: async (clave, item) => {
+        try {
+          setError(null);
+          setDatos(await f.crearCatalogo(clave, item));
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "No se pudo crear el registro");
+        }
+      },
+
+      actualizarCatalogo: async (clave, id, cambios) => {
+        try {
+          setError(null);
+          setDatos(await f.actualizarCatalogo(clave, id, cambios));
+        } catch (e) {
+          setError(e instanceof Error ? e.message : "No se pudo actualizar");
+        }
+      },
+
+      eliminarCatalogo: async (clave, id) => {
+        const resultado = await f.eliminarCatalogo(clave, id);
+        await cargar();
+        return resultado;
+      },
+
+      usosDeCatalogo: (clave, id) =>
+        datos.viajes.filter((v) => v[CAMPO_EN_VIAJE[clave]] === id).length,
+
       unidad,
       operador,
       proveedor,
@@ -300,24 +288,12 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
           ? (operador(v.operadorId)?.nombre ?? "Sin asignar")
           : (proveedor(v.proveedorId)?.nombre ?? "Sin proveedor"),
       esFull: (tipoUnidadId: string) =>
-        data.tiposUnidad.find((t) => t.id === tipoUnidadId)?.full ?? false,
-      reiniciar,
+        Boolean(
+          (datos.tiposUnidad.find((t) => t.id === tipoUnidadId) as TipoUnidad | undefined)
+            ?.full,
+        ),
     };
-  }, [
-    data,
-    hidratado,
-    agregarViaje,
-    cambiarEstado,
-    facturar,
-    marcarCobrado,
-    autorizarPago,
-    marcarPagado,
-    liquidar,
-    agregarCatalogo,
-    actualizarCatalogo,
-    eliminarCatalogo,
-    reiniciar,
-  ]);
+  }, [datos, cargando, error, necesitaLogin, usuario, entrar, salir, cargar, accion]);
 
   return <StoreContext.Provider value={value}>{children}</StoreContext.Provider>;
 }

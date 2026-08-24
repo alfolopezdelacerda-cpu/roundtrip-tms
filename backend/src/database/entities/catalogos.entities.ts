@@ -71,8 +71,33 @@ export class TipoUnidad extends Base {
 @Entity('tipos_mercancia')
 export class TipoMercancia extends Base {}
 
+/**
+ * Proveedores que ejecutan los servicios FWD.
+ *
+ * Provisional: según docs/DATABASE-SCHEMA.md estos viven en `forwarding_db`.
+ * Mientras esa base no tenga entidades, se guardan aquí para que la
+ * asignación FWD funcione; por eso `Servicio.proveedorId` sigue siendo un
+ * UUID suelto sin llave foránea, y mudarlos después no rompe nada.
+ */
+@Entity('proveedores')
+export class Proveedor extends Base {
+  @Column({
+    type: 'enum',
+    enum: ['transportista', 'agente_aduanal', 'almacen', 'seguros'],
+    default: 'transportista',
+  })
+  tipo: string;
+
+  @Column({ name: 'dias_pago', type: 'int', default: 30 })
+  diasPago: number;
+
+  @Column({ name: 'contacto_encrypted', type: 'varchar', length: 500, nullable: true })
+  contactoEncrypted: string | null;
+}
+
 export const ENTIDADES_CATALOGOS = [
   Cliente,
+  Proveedor,
   Puerto,
   TipoNegocio,
   TipoUnidad,

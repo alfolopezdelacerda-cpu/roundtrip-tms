@@ -14,13 +14,13 @@ roundtrip-tms/
 
 | Pieza | Estado |
 |---|---|
-| `frontend/` | ✅ Desplegado en Vercel. Las 7 secciones operativas y el administrador oculto de catálogos. Datos demo en `localStorage`: **aún no consume la API**. |
+| `frontend/` | ✅ Desplegado en Vercel. Las 7 secciones operativas y el administrador oculto, **conectados a la API** cuando `NEXT_PUBLIC_API_URL` está definida; sin ella corre en modo demostración. |
 | Autenticación | ✅ Login, JWT con rotación de refresh, revocación, MFA (TOTP), RBAC y cifrado AES-256-GCM. |
 | Catálogos | ✅ API completa de los 7 catálogos, con borrado protegido por uso. |
 | Servicios | ✅ Alta con folio y carta porte automáticos, edición, monitoreo y cierre financiero (facturar, cobrar, autorizar, pagar, liquidar). |
 | Seeds | ✅ `npm run db:seed`, idempotente. |
 | Migraciones | ❌ Pendientes. En desarrollo el esquema se crea con `DB_SYNCHRONIZE=true`. |
-| Frontend contra API | ❌ Pendiente: sustituir `lib/store.tsx` por un cliente HTTP. |
+| Frontend contra API | ✅ Login con JWT, renovación automática del token, catálogos y servicios en vivo. |
 | Entidades forwarding y monitoreo | ❌ Pendientes. Las conexiones existen y responden, pero sin entidades: proveedores y GPS siguen fuera de la base. |
 | Módulo SAT | ⚠️ CFDI 4.0 de traslado con Complemento Carta Porte 3.1: construcción del XML, sellado con el CSD real y timbrado a través de un PAC. Ver las advertencias más abajo antes de usarlo en producción. |
 
@@ -108,6 +108,13 @@ Contra PostgreSQL 16 real, con esquema creado por TypeORM:
 - **Concurrencia:** ocho altas simultáneas → ocho folios únicos, cero fallos.
 - **RBAC por endpoint:** un `dispatcher` crea servicios (201) pero no catálogos
   ni facturas (403); sin token, 401.
+- **Frontend contra la API, en navegador real:** el portero no deja ver datos
+  sin sesión, la política de contraseña y las credenciales incorrectas se
+  reportan tal como las devuelve el backend, la sesión sobrevive a una recarga,
+  las cinco secciones traen datos del backend sembrado, un alta desde el
+  formulario **queda en Postgres con folio y carta porte asignados por el
+  servidor**, el administrador da de alta catálogos vía API y respeta el 409 de
+  un registro en uso, y cerrar sesión devuelve al acceso.
 - **SAT:** con un CSD de prueba generado al vuelo — validación previa listando
   los 14 campos faltantes, captura, emisión del XML con sus ubicaciones,
   autotransporte y figura de transporte, y **verificación criptográfica del
@@ -123,13 +130,30 @@ Contra PostgreSQL 16 real, con esquema creado por TypeORM:
 ```bash
 cd frontend
 npm install
-npm run dev        # http://localhost:3000
+NEXT_PUBLIC_API_URL=http://localhost:3000 npm run dev
 ```
 
 Stack: Next.js 16, React 19, TypeScript, Tailwind CSS 4.
 
-Los datos son de demostración y viven en el navegador. Para conectar la API hay
-que sustituir `lib/store.tsx` por un cliente HTTP con la misma interfaz.
+### Dos modos, un mismo código
+
+`lib/datos.ts` define una interfaz con dos implementaciones tras ella:
+
+- **API** (`NEXT_PUBLIC_API_URL` definida): habla con el backend. Exige iniciar
+  sesión; sin ella no se muestra ni un dato.
+- **Demostración** (sin esa variable): datos de ejemplo en `localStorage`. Es
+  lo que corre en Vercel, porque ahí no hay backend hospedado; la alternativa
+  sería una pantalla de error. La interfaz lo dice en el encabezado y en el
+  pie, para que nadie confunda un dato de ejemplo con uno real.
+
+### Sesión
+
+Los tokens viven en `localStorage`. Ante un 401 el cliente renueva el access
+token con el refresh y repite la petición una sola vez; si el refresh tampoco
+sirve, cierra la sesión y vuelve al acceso. El portero (`components/sesion.tsx`)
+es de cliente y no un middleware: la sesión vive en el navegador y el servidor
+de Next no la conoce, así que redirigir desde el borde solo produciría
+parpadeos.
 
 ## Despliegue
 

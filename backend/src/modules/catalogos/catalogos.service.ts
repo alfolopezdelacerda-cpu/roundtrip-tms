@@ -8,6 +8,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, type ObjectLiteral } from 'typeorm';
 import {
   Cliente,
+  Proveedor,
   Puerto,
   TipoMercancia,
   TipoNegocio,
@@ -21,6 +22,7 @@ import logger from '../../common/logger';
 /** Nombres de catálogo aceptados en la ruta `/catalogos/:tipo`. */
 export const TIPOS_CATALOGO = [
   'clientes',
+  'proveedores',
   'unidades',
   'operadores',
   'puertos',
@@ -35,6 +37,7 @@ export type TipoCatalogo = (typeof TIPOS_CATALOGO)[number];
 export class CatalogosService {
   constructor(
     @InjectRepository(Cliente) private readonly clientes: Repository<Cliente>,
+    @InjectRepository(Proveedor) private readonly proveedores: Repository<Proveedor>,
     @InjectRepository(Puerto) private readonly puertos: Repository<Puerto>,
     @InjectRepository(TipoNegocio) private readonly tiposNegocio: Repository<TipoNegocio>,
     @InjectRepository(TipoUnidad) private readonly tiposUnidad: Repository<TipoUnidad>,
@@ -49,6 +52,7 @@ export class CatalogosService {
   private repositorio(tipo: TipoCatalogo): Repository<ObjectLiteral> {
     const mapa: Record<TipoCatalogo, Repository<ObjectLiteral>> = {
       clientes: this.clientes,
+      proveedores: this.proveedores,
       unidades: this.vehiculos,
       operadores: this.conductores,
       puertos: this.puertos,
@@ -68,6 +72,7 @@ export class CatalogosService {
   private columnaEnServicio(tipo: TipoCatalogo): string {
     return {
       clientes: 'cliente_id',
+      proveedores: 'proveedor_id',
       unidades: 'vehiculo_id',
       operadores: 'conductor_id',
       puertos: 'puerto_id',
@@ -168,9 +173,30 @@ export class CatalogosService {
     const copia = { ...datos };
     delete copia.id;
 
+    if (tipo === 'proveedores' && typeof copia.contacto === 'string') {
+      copia.contactoEncrypted = copia.contacto
+        ? this.encryption.encrypt(copia.contacto)
+        : null;
+      delete copia.contacto;
+    }
+
     if (tipo === 'clientes' && typeof copia.rfc === 'string') {
       copia.rfcEncrypted = copia.rfc ? this.encryption.encrypt(copia.rfc) : null;
       delete copia.rfc;
+    }
+
+    // Las unidades se presentan con `placas` y `capacidadTon`; la tabla usa
+    // `placa` y `capacidad_toneladas`. La API debe aceptar lo mismo que
+    // devuelve, así que la traducción va aquí.
+    if (tipo === 'unidades') {
+      if (typeof copia.placas === 'string') {
+        copia.placa = copia.placas;
+        delete copia.placas;
+      }
+      if (typeof copia.capacidadTon === 'number') {
+        copia.capacidadToneladas = String(copia.capacidadTon);
+        delete copia.capacidadTon;
+      }
     }
 
     if (tipo === 'operadores') {
@@ -242,6 +268,17 @@ export class CatalogosService {
         telefono: this.descifrar(r.telefonoEncrypted),
         rfc: this.descifrar(r.rfcEncrypted),
         estado: r.estado,
+        activo: r.activo,
+      };
+    }
+
+    if (tipo === 'proveedores') {
+      return {
+        id: r.id,
+        nombre: r.nombre,
+        tipo: r.tipo,
+        diasPago: r.diasPago,
+        contacto: this.descifrar(r.contactoEncrypted),
         activo: r.activo,
       };
     }

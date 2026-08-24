@@ -2,7 +2,13 @@
 
 import Link from "next/link";
 import { useStore } from "@/lib/store";
-import { VIAJE_ACTIVO, esLiquidable, margen } from "@/lib/types";
+import {
+  VIAJE_ACTIVO,
+  esLiquidable,
+  margen,
+  operadorDisponible,
+  unidadDisponible,
+} from "@/lib/types";
 import { mxn } from "@/lib/format";
 import { Card, Kpi, PageTitle } from "@/components/ui";
 
@@ -62,8 +68,8 @@ export default function Tablero() {
         />
         <Kpi
           label="Disponibles"
-          value={`${unidades.filter((u) => u.estado === "disponible").length} / ${
-            operadores.filter((o) => o.estado === "disponible").length
+          value={`${unidades.filter(unidadDisponible).length} / ${
+            operadores.filter(operadorDisponible).length
           }`}
           hint="Unidades / operadores"
         />

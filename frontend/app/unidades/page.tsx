@@ -5,10 +5,19 @@ import { VIAJE_ACTIVO } from "@/lib/types";
 import { Card, PageTitle } from "@/components/ui";
 
 const claseEstado: Record<string, string> = {
+  // Vocabulario del backend
+  operativo: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  mantenimiento: "bg-amber-50 text-amber-800 ring-amber-200",
+  fuera_servicio: "bg-rose-50 text-rose-700 ring-rose-200",
+  vendido: "bg-slate-100 text-slate-700 ring-slate-200",
+  // Vocabulario del modo demostración
   disponible: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   en_viaje: "bg-blue-50 text-blue-700 ring-blue-200",
   taller: "bg-amber-50 text-amber-800 ring-amber-200",
 };
+
+/** Un estado desconocido no debe quedar sin estilo. */
+const CLASE_NEUTRA = "bg-slate-100 text-slate-700 ring-slate-200";
 
 export default function Unidades() {
   const { unidades, viajes } = useStore();
@@ -36,7 +45,7 @@ export default function Unidades() {
                   <p className="text-sm text-muted">{u.tipo}</p>
                 </div>
                 <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${claseEstado[u.estado]}`}
+                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${claseEstado[u.estado] ?? CLASE_NEUTRA}`}
                 >
                   {u.estado.replace("_", " ")}
                 </span>

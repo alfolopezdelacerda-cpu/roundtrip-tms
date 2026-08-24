@@ -5,10 +5,19 @@ import { VIAJE_ACTIVO } from "@/lib/types";
 import { Card, PageTitle } from "@/components/ui";
 
 const claseEstado: Record<string, string> = {
+  // Vocabulario del backend
+  activo: "bg-emerald-50 text-emerald-700 ring-emerald-200",
+  inactivo: "bg-slate-100 text-slate-700 ring-slate-200",
+  suspendido: "bg-amber-50 text-amber-800 ring-amber-200",
+  baja: "bg-rose-50 text-rose-700 ring-rose-200",
+  // Vocabulario del modo demostración
   disponible: "bg-emerald-50 text-emerald-700 ring-emerald-200",
   en_viaje: "bg-blue-50 text-blue-700 ring-blue-200",
   descanso: "bg-slate-100 text-slate-700 ring-slate-200",
 };
+
+/** Un estado desconocido no debe quedar sin estilo. */
+const CLASE_NEUTRA = "bg-slate-100 text-slate-700 ring-slate-200";
 
 export default function Operadores() {
   const { operadores, viajes } = useStore();
@@ -61,7 +70,7 @@ export default function Operadores() {
                     </td>
                     <td className="px-4 py-3">
                       <span
-                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${claseEstado[o.estado]}`}
+                        className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${claseEstado[o.estado] ?? CLASE_NEUTRA}`}
                       >
                         {o.estado}
                       </span>

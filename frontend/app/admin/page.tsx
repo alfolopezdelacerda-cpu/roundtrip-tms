@@ -38,6 +38,9 @@ const CATALOGOS: DefinicionCatalogo[] = [
     campos: [
       { clave: "nombre", titulo: "Nombre", tipo: "texto" },
       { clave: "rfc", titulo: "RFC", tipo: "texto", ancho: "w-40" },
+      // Obligatorios para emitir CFDI 4.0 al cliente.
+      { clave: "regimenFiscal", titulo: "Régimen", tipo: "texto", ancho: "w-24" },
+      { clave: "codigoPostal", titulo: "CP", tipo: "texto", ancho: "w-24" },
       { clave: "diasCredito", titulo: "Días crédito", tipo: "numero", inicial: 30 },
     ],
   },
@@ -65,15 +68,28 @@ const CATALOGOS: DefinicionCatalogo[] = [
     campos: [
       { clave: "economico", titulo: "Económico", tipo: "texto", ancho: "w-32" },
       { clave: "placas", titulo: "Placas", tipo: "texto", ancho: "w-36" },
-      { clave: "tipo", titulo: "Tipo", tipo: "texto" },
+      {
+        clave: "tipo",
+        titulo: "Tipo",
+        tipo: "select",
+        opciones: ["full_trailer", "sencillo", "rabon", "pickup"],
+        inicial: "full_trailer",
+      },
       { clave: "capacidadTon", titulo: "Ton", tipo: "numero", inicial: 30 },
       {
         clave: "estado",
         titulo: "Estado",
         tipo: "select",
-        opciones: ["disponible", "en_viaje", "taller"],
-        inicial: "disponible",
+        opciones: ["operativo", "mantenimiento", "fuera_servicio", "vendido"],
+        inicial: "operativo",
       },
+      // Datos que exige el complemento Carta Porte para emitir.
+      { clave: "configVehicular", titulo: "Config. SAT", tipo: "texto", ancho: "w-28" },
+      { clave: "permisoSct", titulo: "Permiso SCT", tipo: "texto", ancho: "w-28" },
+      { clave: "numPermisoSct", titulo: "Núm. permiso", tipo: "texto", ancho: "w-36" },
+      { clave: "anio", titulo: "Modelo", tipo: "numero", inicial: 2020 },
+      { clave: "aseguradoraCivil", titulo: "Aseguradora", tipo: "texto", ancho: "w-36" },
+      { clave: "polizaCivil", titulo: "Póliza", tipo: "texto", ancho: "w-32" },
     ],
   },
   {
@@ -84,12 +100,13 @@ const CATALOGOS: DefinicionCatalogo[] = [
       { clave: "nombre", titulo: "Nombre", tipo: "texto" },
       { clave: "licencia", titulo: "Licencia", tipo: "texto", ancho: "w-36" },
       { clave: "telefono", titulo: "Teléfono", tipo: "texto", ancho: "w-36" },
+      { clave: "rfc", titulo: "RFC", tipo: "texto", ancho: "w-36" },
       {
         clave: "estado",
         titulo: "Estado",
         tipo: "select",
-        opciones: ["disponible", "en_viaje", "descanso"],
-        inicial: "disponible",
+        opciones: ["activo", "inactivo", "suspendido", "baja"],
+        inicial: "activo",
       },
     ],
   },
@@ -178,31 +195,31 @@ function TablaCatalogo({ definicion }: { definicion: DefinicionCatalogo }) {
   const [nuevo, setNuevo] = useState<Record<string, unknown>>(() => inicial(definicion));
   const [aviso, setAviso] = useState<string | null>(null);
 
-  function alta(e: React.FormEvent) {
+  async function alta(e: React.FormEvent) {
     e.preventDefault();
     const principal = definicion.campos[0].clave;
     if (!String(nuevo[principal] ?? "").trim()) {
       setAviso(`${definicion.campos[0].titulo} es obligatorio.`);
       return;
     }
-    agregarCatalogo(definicion.clave, nuevo);
+    await agregarCatalogo(definicion.clave, nuevo);
     setNuevo(inicial(definicion));
     setAviso(null);
   }
 
-  function borrar(id: string) {
-    const usos = usosDeCatalogo(definicion.clave, id);
-    if (usos > 0) {
-      // Borrarlo dejaría servicios apuntando a un registro inexistente; se
-      // desactiva en su lugar, que es lo que el catálogo ya contempla.
+  async function borrar(id: string) {
+    try {
+      // Quien decide si se borra o se desactiva es el backend: es el único
+      // que sabe con certeza cuántos servicios lo referencian.
+      const resultado = await eliminarCatalogo(definicion.clave, id);
       setAviso(
-        `Ese registro lo usan ${usos} servicio(s). Se desactivó en vez de borrarse.`,
+        resultado.desactivado
+          ? `Ese registro lo usan ${resultado.usos} servicio(s). Se desactivó en vez de borrarse.`
+          : null,
       );
-      actualizarCatalogo(definicion.clave, id, { activo: false });
-      return;
+    } catch (error) {
+      setAviso(error instanceof Error ? error.message : "No se pudo borrar");
     }
-    eliminarCatalogo(definicion.clave, id);
-    setAviso(null);
   }
 
   return (
@@ -300,7 +317,7 @@ function TablaCatalogo({ definicion }: { definicion: DefinicionCatalogo }) {
       </Card>
 
       <p className="mt-4 text-xs text-muted">
-        Los cambios se guardan en este navegador. Un registro en uso no se borra:
+        Un registro en uso no se borra:
         se desactiva, y deja de ofrecerse en el alta de viaje sin romper los
         servicios que ya lo usan.
       </p>

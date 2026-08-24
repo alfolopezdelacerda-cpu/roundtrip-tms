@@ -26,8 +26,13 @@ export type EstadoCobro = "pendiente" | "facturado" | "cobrado" | "vencido";
 export type EstadoPago = "pendiente" | "autorizado" | "pagado";
 export type EstadoLiquidacion = "pendiente" | "liquidado";
 
-export type EstadoUnidad = "disponible" | "en_viaje" | "taller";
-export type EstadoOperador = "disponible" | "en_viaje" | "descanso";
+/**
+ * El estado de unidades y operadores lo define el catálogo del backend
+ * (`operativo`, `mantenimiento`, `activo`, `baja`…). Se deja abierto para no
+ * duplicar aquí un enum que allá puede crecer.
+ */
+export type EstadoUnidad = string;
+export type EstadoOperador = string;
 
 export type Viaje = {
   id: string;
@@ -237,6 +242,22 @@ export function rutaTexto(v: Viaje): string {
   return v.modalidad === "RT"
     ? `${v.origen} → ${v.destino} → ${v.origen}`
     : `${v.origen} → ${v.destino}`;
+}
+
+/**
+ * Disponibilidad de flota y personal.
+ *
+ * El backend usa el vocabulario del catálogo (`operativo`, `activo`) y el modo
+ * demostración el de la operación (`disponible`). Ambos significan lo mismo, y
+ * dar por bueno uno solo hacía que el tablero reportara cero unidades libres
+ * teniendo la flota entera parada en el patio.
+ */
+export function unidadDisponible(u: Unidad): boolean {
+  return u.activo && (u.estado === "operativo" || u.estado === "disponible");
+}
+
+export function operadorDisponible(o: Operador): boolean {
+  return o.activo && (o.estado === "activo" || o.estado === "disponible");
 }
 
 /** Fecha de referencia del servicio para ordenar y agrupar. */
