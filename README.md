@@ -148,10 +148,11 @@ Stack: Next.js 16, React 19, TypeScript, Tailwind CSS 4.
 
 - **API** (`NEXT_PUBLIC_API_URL` definida): habla con el backend. Exige iniciar
   sesión; sin ella no se muestra ni un dato.
-- **Demostración** (sin esa variable): datos de ejemplo en `localStorage`. Es
-  lo que corre en Vercel, porque ahí no hay backend hospedado; la alternativa
-  sería una pantalla de error. La interfaz lo dice en el encabezado y en el
-  pie, para que nadie confunda un dato de ejemplo con uno real.
+- **Demostración** (sin esa variable): datos de ejemplo en `localStorage`, por
+  visitante. Es el modo por defecto hasta que el proyecto backend en Vercel
+  (ver "Despliegue" más abajo) tenga `NEXT_PUBLIC_API_URL` apuntándole desde
+  el proyecto frontend. La interfaz lo dice en el encabezado y en el pie,
+  para que nadie confunda un dato de ejemplo con uno real.
 
 ### Sesión
 
@@ -166,9 +167,53 @@ parpadeos.
 
 - **Frontend → Vercel.** Proyecto con *Root Directory* = `frontend`; cada push a
   `main` despliega.
-- **Backend → NO va en Vercel.** Necesita procesos de larga vida, Postgres,
-  Redis y Keycloak; el destino natural es un host de contenedores (Railway,
-  Render, Fly.io, ECS o Kubernetes).
+- **Backend → Vercel, como función serverless.** `backend/api/index.ts`
+  arranca el mismo `AppModule` que `src/main.ts` (comparten `configurarApp`
+  en `src/bootstrap.ts`) pero con `app.init()` en vez de `app.listen()`;
+  `backend/vercel.json` reescribe toda ruta hacia esa función. Keycloak y
+  Redis no se usan en este modo: MFA es TOTP local (`otplib`) y no hay caché
+  de sesión, así que no hacen falta.
+
+  **Alta paso a paso (una sola vez):**
+  1. En el dashboard de Vercel, **Add New → Project**, importar
+     `alfolopezdelacerda-cpu/roundtrip-tms` de nuevo con *Root Directory* =
+     `backend` (un proyecto Vercel separado del frontend, mismo repo).
+     Framework Preset: *Other*. No hace falta *Build Command* (Vercel
+     compila `api/index.ts` con su propio bundler); `Install Command`
+     `npm install`.
+  2. **Storage → Create Database → Postgres** (Neon, vía Vercel Marketplace)
+     y conectarla a ese proyecto backend. Copia la cadena de conexión
+     *pooled* (host con sufijo `-pooler`, la que sirve para conexiones
+     serverless de alta concurrencia).
+  3. Variables de entorno del proyecto **backend** (Production + Preview):
+     - `DB_TRANSPORTES_URL`, `DB_FORWARDING_URL`, `DB_MONITOREO_URL` — las
+       tres pueden apuntar a la **misma** base por ahora: `forwarding` y
+       `monitoreo` todavía no tienen entidades (ver tabla de arriba), así que
+       no hay nada que aislar aún. El día que tengan entidades propias, se
+       crean sus propias bases en el mismo proyecto Neon y se separan.
+     - `DB_SSL=true` (Neon exige TLS).
+     - `DB_SYNCHRONIZE=false` (nunca en producción).
+     - `NODE_ENV=production`.
+     - `JWT_SECRET`, `JWT_REFRESH_SECRET`, `ENCRYPTION_KEY` — 32+ caracteres
+       aleatorios cada uno (`openssl rand -base64 32`).
+     - `CORS_ORIGIN=https://roundtrip-tms.vercel.app` (el dominio del
+       proyecto **frontend**; separar con comas si hay más de uno).
+  4. Antes del primer request, correr las migraciones contra esa base:
+     ```bash
+     cd backend
+     ENV_FILE=.env.production DB_TRANSPORTES_URL=... DB_FORWARDING_URL=... DB_MONITOREO_URL=... npm run db:migrate
+     npm run db:seed   # opcional: usuario admin y catálogos de ejemplo
+     ```
+  5. Deploy del proyecto backend → copiar su URL pública (algo como
+     `https://roundtrip-tms-backend.vercel.app`).
+  6. En el proyecto **frontend**, variable de entorno
+     `NEXT_PUBLIC_API_URL=https://roundtrip-tms-backend.vercel.app` y
+     redeploy (`NEXT_PUBLIC_*` se hornea en build, así que un cambio de esta
+     variable exige rebuild, no solo reinicio).
+
+  Con eso, `hayApi` (`frontend/lib/api.ts`) queda en `true` en producción y
+  todo lo que se dé de alta se guarda en la base real en vez de en el
+  `localStorage` de cada visitante.
 
 ## Módulo SAT — Carta Porte
 

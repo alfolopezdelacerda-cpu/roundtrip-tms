@@ -1,136 +1,20 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, BadRequestException } from '@nestjs/common';
 import { NestExpressApplication } from '@nestjs/platform-express';
-// Import por defecto (no `* as`): con `esModuleInterop` estos paquetes
-// exportan la función directamente y `* as` deja un namespace no invocable.
-import helmet from 'helmet';
-import compression from 'compression';
-import rateLimit from 'express-rate-limit';
-// `mongo-sanitize` sanea un valor suelto, no es middleware; el middleware de
-// Express es `express-mongo-sanitize`.
-import mongoSanitize from 'express-mongo-sanitize';
 import { AppModule } from './app.module';
-import { AuditInterceptor } from './common/interceptors/audit.interceptor';
-import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { configurarApp } from './bootstrap';
 import logger from './common/logger';
 
+/**
+ * Arranque tradicional (servidor de larga duración, `app.listen`). Lo usa
+ * el desarrollo local y cualquier host que no sea serverless. En Vercel el
+ * arranque real es `api/index.ts`, que reusa `configurarApp` sin `.listen`.
+ */
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
 
-  // ============================================
-  // SEGURIDAD: Headers (OWASP)
-  // ============================================
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'https:'],
-        connectSrc: ["'self'"],
-        fontSrc: ["'self'"],
-        mediaSrc: ["'self'"],
-        objectSrc: ["'none'"],
-        frameSrc: ["'none'"],
-      },
-    },
-    hsts: {
-      maxAge: 31536000, // 1 año
-      includeSubDomains: true,
-      preload: true,
-    },
-    referrerPolicy: { policy: 'strict-origin-when-cross-origin' },
-    noSniff: true,
-    xssFilter: true,
-  }));
-
-  // ============================================
-  // SEGURIDAD: Rate Limiting
-  // ============================================
-  const limiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutos
-    max: 1000, // máx 1000 requests por IP
-    message: 'Demasiadas solicitudes desde esta IP, por favor intente más tarde.',
-    standardHeaders: true,
-    legacyHeaders: false,
-    skip: (req) => {
-      // Whitelist IPs internas
-      return ['127.0.0.1', '::1'].includes(req.ip ?? '');
-    },
-  });
-
-  const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,
-    max: 5, // Máx 5 intentos de login
-    message: 'Demasiados intentos de login, cuenta bloqueada 15 minutos',
-    skipSuccessfulRequests: true,
-  });
-
-  app.use('/api/', limiter);
-  app.use('/api/auth/login', authLimiter);
-  app.use('/api/auth/refresh', authLimiter);
-
-  // ============================================
-  // SEGURIDAD: Compression + Data Sanitization
-  // ============================================
-  app.use(compression());
-  app.use(mongoSanitize()); // Previene NoSQL injection
-
-  // ============================================
-  // SEGURIDAD: CORS (Solo frontend autorizado)
-  // ============================================
-  app.enableCors({
-    origin: process.env.CORS_ORIGIN?.split(',') || ['http://localhost:3001'],
-    credentials: true,
-    methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-    allowedHeaders: ['Content-Type', 'Authorization', 'X-CSRF-Token'],
-    exposedHeaders: ['Content-Length', 'X-RateLimit-Limit', 'X-RateLimit-Remaining'],
-  });
-
-  // ============================================
-  // VALIDACIÓN: Input Validation (Automático)
-  // ============================================
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true, // Elimina propiedades no definidas
-      forbidNonWhitelisted: true, // Rechaza propiedades extra
-      transform: true, // Transforma tipos automáticamente
-      transformOptions: {
-        enableImplicitConversion: true,
-      },
-      exceptionFactory: (errors) => {
-        const messages = errors.map(
-          (error) => ({
-            field: error.property,
-            messages: Object.values(error.constraints || {}),
-          }),
-        );
-        return new BadRequestException({
-          statusCode: 400,
-          message: 'Validation failed',
-          errors: messages,
-        });
-      },
-    }),
-  );
-
-  // ============================================
-  // AUDITORÍA: Interceptor Global
-  // ============================================
-  app.useGlobalInterceptors(new AuditInterceptor());
-
-  // ============================================
-  // ERROR HANDLING: Global Exception Filter
-  // ============================================
-  app.useGlobalFilters(new AllExceptionsFilter());
-
-  // ============================================
-  // SEGURIDAD: Desactivar headers peligrosos
-  // ============================================
-  app.disable('x-powered-by');
-  app.disable('etag');
+  configurarApp(app);
 
   // ============================================
   // HEALTH CHECK
