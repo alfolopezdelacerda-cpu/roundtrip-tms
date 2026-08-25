@@ -11,8 +11,11 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   CatalogosService,
   TIPOS_CATALOGO,
@@ -71,6 +74,23 @@ export class CatalogosController {
   @HttpCode(HttpStatus.NO_CONTENT)
   eliminar(@Param('tipo') tipo: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.catalogos.eliminar(this.validar(tipo), id);
+  }
+
+  @Post(':tipo/bulk-import')
+  @Roles('admin', 'manager')
+  @UseGuards(RolesGuard)
+  @UseInterceptors(FileInterceptor('archivo'))
+  async importarCSV(
+    @Param('tipo') tipo: string,
+    @UploadedFile() archivo: Express.Multer.File,
+  ) {
+    if (!archivo) {
+      throw new BadRequestException('Se requiere un archivo CSV');
+    }
+    if (!archivo.mimetype.includes('csv') && !archivo.originalname.endsWith('.csv')) {
+      throw new BadRequestException('El archivo debe ser un CSV válido');
+    }
+    return this.catalogos.importarCSV(this.validar(tipo), archivo);
   }
 
   private validar(tipo: string): TipoCatalogo {

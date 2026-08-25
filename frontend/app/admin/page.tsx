@@ -7,6 +7,7 @@ import type { ClaveCatalogo } from "@/lib/catalogos";
 import type { NuevoUsuario } from "@/lib/datos";
 import { ROLES_USUARIO, type RolUsuario, type Usuario } from "@/lib/types";
 import { Card, Empty, PageTitle } from "@/components/ui";
+import { BulkImportDialog } from "@/components/bulk-import";
 
 type TipoCampo = "texto" | "numero" | "select" | "check";
 
@@ -212,7 +213,12 @@ export default function Admin() {
       {activa === "usuarios" ? <PanelUsuarios /> : null}
       {activa === "permisos" ? <PanelPermisos /> : null}
       {definicion ? (
-        <TablaCatalogo key={definicion.clave} definicion={definicion} />
+        <>
+          <div className="mb-4">
+            <BulkImportDialog />
+          </div>
+          <TablaCatalogo key={definicion.clave} definicion={definicion} />
+        </>
       ) : null}
     </>
   );

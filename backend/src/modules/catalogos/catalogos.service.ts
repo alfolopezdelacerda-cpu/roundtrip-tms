@@ -408,4 +408,50 @@ export class CatalogosService {
       return '';
     }
   }
+
+  async importarCSV(tipo: TipoCatalogo, archivo: Express.Multer.File) {
+    const csv = await import('csv-parse/sync');
+    const contenido = archivo.buffer.toString('utf-8');
+
+    let filas: Record<string, string>[];
+    try {
+      filas = csv.parse(contenido, {
+        columns: true,
+        skip_empty_lines: true,
+        trim: true,
+      });
+    } catch (err) {
+      throw new BadRequestException(`Error al parsear CSV: ${(err as Error).message}`);
+    }
+
+    const resultados = {
+      importados: 0,
+      errores: [] as Array<{ fila: number; error: string }>,
+      total: filas.length,
+    };
+
+    for (let i = 0; i < filas.length; i++) {
+      try {
+        const fila = filas[i];
+        if (!fila || Object.keys(fila).every(k => !fila[k])) continue;
+
+        await this.crear(tipo, fila);
+        resultados.importados++;
+      } catch (err) {
+        resultados.errores.push({
+          fila: i + 2,
+          error: (err as Error).message || 'Error desconocido',
+        });
+      }
+    }
+
+    logger.audit({
+      tipo: 'catalogo_bulk_import',
+      catalogo: tipo,
+      importados: resultados.importados,
+      errores: resultados.errores.length,
+    });
+
+    return resultados;
+  }
 }
