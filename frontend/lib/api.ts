@@ -11,6 +11,7 @@ const CLAVE_TOKENS = "roundtrip-tms:sesion";
 /** Si no hay URL configurada, la aplicación corre en modo demostración. */
 export const API_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/$/, "");
 
+// Conectado a la API persistente en Vercel (backend serverless)
 export const hayApi = API_URL !== "";
 
 export type Sesion = {
