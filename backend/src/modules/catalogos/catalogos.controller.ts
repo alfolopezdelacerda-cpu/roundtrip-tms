@@ -16,7 +16,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import type { Multer } from 'multer';
+import 'multer';
 import {
   CatalogosService,
   TIPOS_CATALOGO,
@@ -83,7 +83,7 @@ export class CatalogosController {
   @UseInterceptors(FileInterceptor('archivo'))
   async importarCSV(
     @Param('tipo') tipo: string,
-    @UploadedFile() archivo: Multer.File,
+    @UploadedFile() archivo: Express.Multer.File,
   ) {
     if (!archivo) {
       throw new BadRequestException('Se requiere un archivo CSV');

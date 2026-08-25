@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, type ObjectLiteral } from 'typeorm';
-import type { Multer } from 'multer';
+import 'multer';
 import {
   Cliente,
   Proveedor,
@@ -410,7 +410,7 @@ export class CatalogosService {
     }
   }
 
-  async importarCSV(tipo: TipoCatalogo, archivo: Multer.File) {
+  async importarCSV(tipo: TipoCatalogo, archivo: Express.Multer.File) {
     const csv = await import('csv-parse/sync');
     const contenido = archivo.buffer.toString('utf-8');
 
