@@ -1,5 +1,7 @@
 import {
+  IsArray,
   IsBoolean,
+  IsDateString,
   IsIn,
   IsInt,
   IsNumber,
@@ -133,6 +135,54 @@ export class CatalogoDto {
   @Length(1, 50)
   polizaCivil?: string;
 
+  // --- unidades: expediente de Flota ---
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  modelo?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  marca?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  vin?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 50)
+  color?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 100)
+  polizaSeguro?: string;
+
+  @IsOptional()
+  @IsDateString()
+  vencimientoSeguro?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  verificacionVigente?: boolean;
+
+  @IsOptional()
+  @IsDateString()
+  verificacionVencimiento?: string;
+
+  /** Data URLs (base64): expediente digital de la unidad. */
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  fotos?: string[];
+
+  @IsOptional()
+  @IsArray()
+  documentos?: { nombre: string; datos: string }[];
+
   // --- operadores (conductores) ---
   @IsOptional()
   @IsString()
@@ -142,13 +192,50 @@ export class CatalogoDto {
   @IsOptional()
   @IsString()
   @Length(1, 30)
-  telefono?: string;
+  celular?: string;
 
   /** CURP del operador; se guarda cifrada como el RFC. */
   @IsOptional()
   @IsString()
   @Length(18, 18)
   curp?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  contactoEmergencia?: string;
+
+  /** Número de seguridad social (IMSS). */
+  @IsOptional()
+  @IsString()
+  @Length(1, 20)
+  nss?: string;
+
+  // --- rutas ---
+  @IsOptional()
+  @IsString()
+  @Length(1, 30)
+  codigo?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  origen?: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(1, 255)
+  destino?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  kmProyectados?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  casetasProyectadas?: number;
 
   /**
    * Estado operativo. Los valores válidos difieren entre unidades

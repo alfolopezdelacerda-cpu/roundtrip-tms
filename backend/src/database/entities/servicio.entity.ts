@@ -13,6 +13,7 @@ import { Conductor, Vehiculo } from './transportes.entities';
 import {
   Cliente,
   Puerto,
+  Ruta,
   TipoMercancia,
   TipoNegocio,
   TipoUnidad,
@@ -130,6 +131,15 @@ export class Servicio {
   @Column({ name: 'proveedor_id', type: 'uuid', nullable: true })
   proveedorId: string | null;
 
+  /**
+   * Solo TDC. Al elegirla en Asignación TDC, `km` y `casetasProyectadas` se
+   * copian de aquí como foto del momento: si la ruta cambia sus proyecciones
+   * después, los servicios ya asignados no se mueven solos.
+   */
+  @ManyToOne(() => Ruta, { nullable: true, eager: true, onDelete: 'SET NULL' })
+  @JoinColumn({ name: 'ruta_id' })
+  ruta: Ruta | null;
+
   @ManyToOne(() => TipoNegocio, { nullable: true, eager: true, onDelete: 'SET NULL' })
   @JoinColumn({ name: 'tipo_negocio_id' })
   tipoNegocio: TipoNegocio | null;
@@ -167,6 +177,10 @@ export class Servicio {
 
   @Column({ type: 'int', default: 0 })
   km: number;
+
+  /** Proyección de casetas copiada de la ruta al momento de asignar (TDC). */
+  @Column({ name: 'casetas_proyectadas', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  casetasProyectadas: string;
 
   /** Lo que se le cobra al cliente (MXN). */
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })

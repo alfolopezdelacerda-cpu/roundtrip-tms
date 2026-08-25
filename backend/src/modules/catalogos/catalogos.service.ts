@@ -10,6 +10,7 @@ import {
   Cliente,
   Proveedor,
   Puerto,
+  Ruta,
   TipoMercancia,
   TipoNegocio,
   TipoUnidad,
@@ -29,6 +30,7 @@ export const TIPOS_CATALOGO = [
   'tipos-negocio',
   'tipos-unidad',
   'tipos-mercancia',
+  'rutas',
 ] as const;
 
 export type TipoCatalogo = (typeof TIPOS_CATALOGO)[number];
@@ -45,6 +47,7 @@ export class CatalogosService {
     private readonly tiposMercancia: Repository<TipoMercancia>,
     @InjectRepository(Vehiculo) private readonly vehiculos: Repository<Vehiculo>,
     @InjectRepository(Conductor) private readonly conductores: Repository<Conductor>,
+    @InjectRepository(Ruta) private readonly rutas: Repository<Ruta>,
     @InjectRepository(Servicio) private readonly servicios: Repository<Servicio>,
     private readonly encryption: EncryptionService,
   ) {}
@@ -59,6 +62,7 @@ export class CatalogosService {
       'tipos-negocio': this.tiposNegocio,
       'tipos-unidad': this.tiposUnidad,
       'tipos-mercancia': this.tiposMercancia,
+      rutas: this.rutas,
     };
     const repo = mapa[tipo];
     if (!repo) throw new BadRequestException(`Catálogo desconocido: ${tipo}`);
@@ -79,6 +83,7 @@ export class CatalogosService {
       'tipos-negocio': 'tipo_negocio_id',
       'tipos-unidad': 'tipo_unidad_id',
       'tipos-mercancia': 'tipo_mercancia_id',
+      rutas: 'ruta_id',
     }[tipo];
   }
 
@@ -89,6 +94,7 @@ export class CatalogosService {
   private columnaOrden(tipo: TipoCatalogo): string {
     if (tipo === 'unidades') return 'economico';
     if (tipo === 'operadores') return 'nombreCompleto';
+    if (tipo === 'rutas') return 'codigo';
     return 'nombre';
   }
 
@@ -208,11 +214,12 @@ export class CatalogosService {
         copia.licenciaNumero = copia.licencia;
         delete copia.licencia;
       }
-      if (typeof copia.telefono === 'string') {
-        copia.telefonoEncrypted = copia.telefono
-          ? this.encryption.encrypt(copia.telefono)
+      // "Celular" en la interfaz es el mismo teléfono cifrado de siempre.
+      if (typeof copia.celular === 'string') {
+        copia.telefonoEncrypted = copia.celular
+          ? this.encryption.encrypt(copia.celular)
           : null;
-        delete copia.telefono;
+        delete copia.celular;
       }
       // El RFC del operador es obligatorio en la figura de transporte del CCP.
       if (typeof copia.rfc === 'string') {
@@ -222,6 +229,16 @@ export class CatalogosService {
       if (typeof copia.curp === 'string') {
         copia.curpEncrypted = copia.curp ? this.encryption.encrypt(copia.curp) : null;
         delete copia.curp;
+      }
+      if (typeof copia.contactoEmergencia === 'string') {
+        copia.contactoEmergenciaEncrypted = copia.contactoEmergencia
+          ? this.encryption.encrypt(copia.contactoEmergencia)
+          : null;
+        delete copia.contactoEmergencia;
+      }
+      if (typeof copia.nss === 'string') {
+        copia.nssEncrypted = copia.nss ? this.encryption.encrypt(copia.nss) : null;
+        delete copia.nss;
       }
     }
 
@@ -257,6 +274,17 @@ export class CatalogosService {
         anio: r.anio,
         aseguradoraCivil: r.aseguradoraCivil,
         polizaCivil: r.polizaCivil,
+        // Expediente de Flota.
+        modelo: r.modelo,
+        marca: r.marca,
+        vin: r.vin,
+        color: r.color,
+        polizaSeguro: r.polizaSeguro,
+        vencimientoSeguro: r.vencimientoSeguro,
+        verificacionVigente: r.verificacionVigente,
+        verificacionVencimiento: r.verificacionVencimiento,
+        fotos: r.fotos ?? [],
+        documentos: r.documentos ?? [],
       };
     }
 
@@ -265,9 +293,23 @@ export class CatalogosService {
         id: r.id,
         nombre: r.nombreCompleto,
         licencia: r.licenciaNumero,
-        telefono: this.descifrar(r.telefonoEncrypted),
+        celular: this.descifrar(r.telefonoEncrypted),
         rfc: this.descifrar(r.rfcEncrypted),
+        contactoEmergencia: this.descifrar(r.contactoEmergenciaEncrypted),
+        nss: this.descifrar(r.nssEncrypted),
         estado: r.estado,
+        activo: r.activo,
+      };
+    }
+
+    if (tipo === 'rutas') {
+      return {
+        id: r.id,
+        codigo: r.codigo,
+        origen: r.origen,
+        destino: r.destino,
+        kmProyectados: r.kmProyectados,
+        casetasProyectadas: r.casetasProyectadas ? Number(r.casetasProyectadas) : 0,
         activo: r.activo,
       };
     }

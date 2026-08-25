@@ -14,6 +14,7 @@ import {
 import {
   Cliente,
   Puerto,
+  Ruta,
   TipoMercancia,
   TipoNegocio,
   TipoUnidad,
@@ -47,6 +48,7 @@ export class ServiciosService {
     private readonly tiposMercancia: Repository<TipoMercancia>,
     @InjectRepository(Vehiculo) private readonly vehiculos: Repository<Vehiculo>,
     @InjectRepository(Conductor) private readonly conductores: Repository<Conductor>,
+    @InjectRepository(Ruta) private readonly rutas: Repository<Ruta>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -64,6 +66,7 @@ export class ServiciosService {
       .leftJoinAndSelect('s.tipoNegocio', 'tipoNegocio')
       .leftJoinAndSelect('s.tipoUnidad', 'tipoUnidad')
       .leftJoinAndSelect('s.tipoMercancia', 'tipoMercancia')
+      .leftJoinAndSelect('s.ruta', 'ruta')
       .orderBy('s.citaCarga', 'DESC');
 
     if (filtro.asignacion) qb.andWhere('s.asignacion = :a', { a: filtro.asignacion });
@@ -242,11 +245,18 @@ export class ServiciosService {
       // asignación de unidad y operador en cualquier edición parcial.
       if (dto.unidadId !== undefined) servicio.vehiculo = relaciones.vehiculo;
       if (dto.operadorId !== undefined) servicio.conductor = relaciones.conductor;
+      if (dto.rutaId !== undefined) {
+        servicio.ruta = relaciones.ruta;
+        // Km y casetas se autocompletan de la ruta: nadie los captura a mano.
+        servicio.km = relaciones.ruta?.kmProyectados ?? 0;
+        servicio.casetasProyectadas = relaciones.ruta?.casetasProyectadas ?? '0';
+      }
       servicio.proveedorId = null;
     } else {
       if (dto.proveedorId !== undefined) servicio.proveedorId = dto.proveedorId;
       servicio.vehiculo = null;
       servicio.conductor = null;
+      servicio.ruta = null;
     }
 
     if (dto.origen) servicio.origen = dto.origen.trim();
@@ -500,6 +510,7 @@ export class ServiciosService {
       tipoMercancia,
       vehiculo,
       conductor,
+      ruta,
     ] = await Promise.all([
       dto.clienteId ? this.clientes.findOne({ where: { id: dto.clienteId } }) : null,
       dto.puertoId ? this.puertos.findOne({ where: { id: dto.puertoId } }) : null,
@@ -516,6 +527,7 @@ export class ServiciosService {
       dto.operadorId
         ? this.conductores.findOne({ where: { id: dto.operadorId } })
         : null,
+      dto.rutaId ? this.rutas.findOne({ where: { id: dto.rutaId } }) : null,
     ]);
 
     // Un id que no existe es un error del cliente, no un campo vacío.
@@ -525,8 +537,9 @@ export class ServiciosService {
     if (dto.operadorId && !conductor) {
       throw new BadRequestException('Operador inexistente');
     }
+    if (dto.rutaId && !ruta) throw new BadRequestException('Ruta inexistente');
 
-    return { cliente, puerto, tipoNegocio, tipoUnidad, tipoMercancia, vehiculo, conductor };
+    return { cliente, puerto, tipoNegocio, tipoUnidad, tipoMercancia, vehiculo, conductor, ruta };
   }
 
   private validarAsignacion(
@@ -564,6 +577,8 @@ export class ServiciosService {
       operadorId: s.conductor?.id ?? '',
       operador: s.conductor?.nombreCompleto ?? '',
       proveedorId: s.proveedorId ?? '',
+      rutaId: s.ruta?.id ?? '',
+      rutaCodigo: s.ruta?.codigo ?? '',
       tipoNegocioId: s.tipoNegocio?.id ?? '',
       tipoNegocio: s.tipoNegocio?.nombre ?? '',
       temperatura: s.temperatura,
@@ -579,6 +594,7 @@ export class ServiciosService {
       po: s.po,
       estado: s.estado,
       km: s.km,
+      casetasProyectadas: Number(s.casetasProyectadas),
       tarifa,
       costo,
       margen: tarifa - costo,

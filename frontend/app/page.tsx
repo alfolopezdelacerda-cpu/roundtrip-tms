@@ -99,7 +99,7 @@ export default function Tablero() {
           alerta={porAsignarFWD > 0}
         />
         <Atajo
-          href="/monitoreo"
+          href="/seguridad/monitoreo"
           titulo="Monitoreo"
           cifra={String(activos.filter((v) => v.estado !== "programado").length)}
           detalle="Servicios en camino"

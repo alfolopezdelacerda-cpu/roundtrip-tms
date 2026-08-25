@@ -1,20 +1,45 @@
-import type { Operador, Proveedor, Unidad, Viaje } from "./types";
+import type { Operador, Proveedor, Ruta, Unidad, Viaje } from "./types";
+
+/** Expediente en blanco: cada unidad del seed solo declara lo que difiere. */
+const EXPEDIENTE_VACIO = {
+  marca: "",
+  modelo: "",
+  anio: null,
+  vin: "",
+  color: "",
+  polizaSeguro: "",
+  vencimientoSeguro: null,
+  verificacionVigente: false,
+  verificacionVencimiento: null,
+  fotos: [],
+  documentos: [],
+} satisfies Partial<Unidad>;
+
+function unidad(u: Partial<Unidad> & Pick<Unidad, "id" | "economico" | "placas" | "tipo">): Unidad {
+  return {
+    capacidadTon: 0,
+    estado: "disponible",
+    activo: true,
+    ...EXPEDIENTE_VACIO,
+    ...u,
+  };
+}
 
 export const unidadesSeed: Unidad[] = [
-  { id: "u1", economico: "T-101", placas: "AB-472-XC", tipo: "Tractocamión", capacidadTon: 30, estado: "en_viaje", activo: true },
-  { id: "u2", economico: "T-102", placas: "AB-518-XC", tipo: "Tractocamión", capacidadTon: 30, estado: "en_viaje", activo: true },
-  { id: "u3", economico: "R-204", placas: "CD-991-LP", tipo: "Rabón", capacidadTon: 10, estado: "disponible", activo: true },
-  { id: "u4", economico: "R-205", placas: "CD-014-LP", tipo: "Rabón", capacidadTon: 10, estado: "taller", activo: true },
-  { id: "u5", economico: "C-310", placas: "EF-663-MN", tipo: "Camioneta 3.5", capacidadTon: 3.5, estado: "disponible", activo: true },
-  { id: "u6", economico: "T-103", placas: "AB-770-XC", tipo: "Tractocamión", capacidadTon: 30, estado: "disponible", activo: true },
+  unidad({ id: "u1", economico: "T-101", placas: "AB-472-XC", tipo: "Tractocamión", capacidadTon: 30, estado: "en_viaje", marca: "Kenworth", modelo: "T680", anio: 2021, color: "Blanco", vin: "1XKAD49X1MJ123456", polizaSeguro: "GNP-88213", vencimientoSeguro: "2026-11-30", verificacionVigente: true, verificacionVencimiento: "2027-02-15" }),
+  unidad({ id: "u2", economico: "T-102", placas: "AB-518-XC", tipo: "Tractocamión", capacidadTon: 30, estado: "en_viaje", marca: "Freightliner", modelo: "Cascadia", anio: 2020, color: "Gris", vin: "3AKJHHDR4LSJ98765", polizaSeguro: "GNP-88214", vencimientoSeguro: "2026-09-10", verificacionVigente: true, verificacionVencimiento: "2026-10-01" }),
+  unidad({ id: "u3", economico: "R-204", placas: "CD-991-LP", tipo: "Rabón", capacidadTon: 10, marca: "Hino", modelo: "268", anio: 2019, color: "Blanco", vin: "5PVNJ8JT7K4S22110", polizaSeguro: "QUAL-4471", vencimientoSeguro: "2026-08-30", verificacionVigente: false, verificacionVencimiento: "2026-01-15" }),
+  unidad({ id: "u4", economico: "R-205", placas: "CD-014-LP", tipo: "Rabón", capacidadTon: 10, estado: "taller", marca: "Hino", modelo: "268", anio: 2018, color: "Azul", vin: "5PVNJ8JT2J4S22119", polizaSeguro: "QUAL-4472", vencimientoSeguro: "2026-12-05", verificacionVigente: true, verificacionVencimiento: "2027-01-20" }),
+  unidad({ id: "u5", economico: "C-310", placas: "EF-663-MN", tipo: "Camioneta 3.5", capacidadTon: 3.5, marca: "Ford", modelo: "F-350", anio: 2022, color: "Rojo", vin: "1FTBF3B69NEA12345", polizaSeguro: "GNP-88215", vencimientoSeguro: "2027-03-01", verificacionVigente: true, verificacionVencimiento: "2027-03-01" }),
+  unidad({ id: "u6", economico: "T-103", placas: "AB-770-XC", tipo: "Tractocamión", capacidadTon: 30, marca: "Kenworth", modelo: "T680", anio: 2023, color: "Negro", vin: "1XKAD49X8PJ654321", polizaSeguro: "GNP-88216", vencimientoSeguro: "2027-05-20", verificacionVigente: true, verificacionVencimiento: "2027-06-01" }),
 ];
 
 export const operadoresSeed: Operador[] = [
-  { id: "o1", nombre: "Javier Robles", licencia: "E-4471203", telefono: "55 1244 8890", estado: "en_viaje", activo: true },
-  { id: "o2", nombre: "Marisol Aguilar", licencia: "E-3390118", telefono: "55 8871 2033", estado: "en_viaje", activo: true },
-  { id: "o3", nombre: "Ernesto Padilla", licencia: "B-1120994", telefono: "81 2255 7741", estado: "disponible", activo: true },
-  { id: "o4", nombre: "Luis Fernando Cruz", licencia: "E-5583321", telefono: "33 4410 9902", estado: "descanso", activo: true },
-  { id: "o5", nombre: "Ana Karen Ibarra", licencia: "B-7741220", telefono: "55 3390 1188", estado: "disponible", activo: true },
+  { id: "o1", nombre: "Javier Robles", licencia: "E-4471203", celular: "55 1244 8890", rfc: "ROBJ850312H12", contactoEmergencia: "María Robles · 55 8820 1177", nss: "12345678901", estado: "en_viaje", activo: true },
+  { id: "o2", nombre: "Marisol Aguilar", licencia: "E-3390118", celular: "55 8871 2033", rfc: "AUGM900722M45", contactoEmergencia: "Pedro Aguilar · 55 3341 9902", nss: "23456789012", estado: "en_viaje", activo: true },
+  { id: "o3", nombre: "Ernesto Padilla", licencia: "B-1120994", celular: "81 2255 7741", rfc: "PAEE880204H78", contactoEmergencia: "Lucía Padilla · 81 1120 4456", nss: "34567890123", estado: "disponible", activo: true },
+  { id: "o4", nombre: "Luis Fernando Cruz", licencia: "E-5583321", celular: "33 4410 9902", rfc: "CULF920918H23", contactoEmergencia: "Diana Cruz · 33 7789 0021", nss: "45678901234", estado: "descanso", activo: true },
+  { id: "o5", nombre: "Ana Karen Ibarra", licencia: "B-7741220", celular: "55 3390 1188", rfc: "IAAK950630M67", contactoEmergencia: "Roberto Ibarra · 55 2290 3345", nss: "56789012345", estado: "disponible", activo: true },
 ];
 
 export const proveedoresSeed: Proveedor[] = [
@@ -22,6 +47,14 @@ export const proveedoresSeed: Proveedor[] = [
   { id: "p2", nombre: "Autotransportes Bajío", tipo: "transportista", diasPago: 45, contacto: "trafico@atbajio.mx", activo: true },
   { id: "p3", nombre: "Aduanal Terán y Asoc.", tipo: "agente_aduanal", diasPago: 15, contacto: "despacho@teran.mx", activo: true },
   { id: "p4", nombre: "Almacenes Pacífico", tipo: "almacen", diasPago: 30, contacto: "contacto@almpacifico.mx", activo: true },
+];
+
+export const rutasSeed: Ruta[] = [
+  { id: "rt1", codigo: "CDMX-MTY", origen: "CDMX", destino: "Monterrey", kmProyectados: 900, casetasProyectadas: 1250, activo: true },
+  { id: "rt2", codigo: "GDL-CDMX", origen: "Guadalajara", destino: "CDMX", kmProyectados: 550, casetasProyectadas: 780, activo: true },
+  { id: "rt3", codigo: "CDMX-PUE", origen: "CDMX", destino: "Puebla", kmProyectados: 135, casetasProyectadas: 210, activo: true },
+  { id: "rt4", codigo: "CDMX-QRO", origen: "CDMX", destino: "Querétaro", kmProyectados: 215, casetasProyectadas: 320, activo: true },
+  { id: "rt5", codigo: "QRO-LEO", origen: "Querétaro", destino: "León", kmProyectados: 190, casetasProyectadas: 260, activo: true },
 ];
 
 /** Monitoreo en blanco: cada entrada del seed solo declara lo que difiere. */
@@ -68,6 +101,8 @@ function servicio(
     unidadId: "",
     operadorId: "",
     proveedorId: "",
+    rutaId: "",
+    rutaCodigo: "",
     tipoNegocioId: "tn5",
     temperatura: "SECO",
     modalidad: "RT",
@@ -79,6 +114,7 @@ function servicio(
     po: "",
     estado: "programado",
     km: 0,
+    casetasProyectadas: 0,
     tarifa: 0,
     costo: 0,
     cobro: { estado: "pendiente", factura: null, fechaFactura: null, diasCredito: 30 },
@@ -101,10 +137,13 @@ export const viajesSeed: Viaje[] = [
     citaCarga: "2026-08-12T07:30",
     citaDescarga: "2026-08-13T16:00",
     estado: "en_ruta_vuelta",
-    km: 1720,
+    km: 900,
+    casetasProyectadas: 1250,
     asignacion: "TDC",
     unidadId: "u1",
     operadorId: "o1",
+    rutaId: "rt1",
+    rutaCodigo: "CDMX-MTY",
     tipoNegocioId: "tn1",
     tipoUnidadId: "tu3",
     tipoMercanciaId: "tm7",

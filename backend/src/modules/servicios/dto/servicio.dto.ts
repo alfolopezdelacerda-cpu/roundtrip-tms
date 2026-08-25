@@ -53,6 +53,11 @@ export class CrearServicioDto {
   @IsUUID()
   proveedorId?: string;
 
+  /** Solo TDC: al elegirla, km y casetasProyectadas se copian de la ruta. */
+  @IsOptional()
+  @IsUUID()
+  rutaId?: string;
+
   @IsOptional()
   @IsUUID()
   tipoNegocioId?: string;

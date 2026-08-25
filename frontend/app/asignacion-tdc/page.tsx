@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Card, Empty, PageTitle } from "@/components/ui";
@@ -17,14 +16,15 @@ import {
   type Columna,
 } from "@/components/servicios";
 import { mxn } from "@/lib/format";
-import { operadorDisponible, rutaTexto, unidadDisponible } from "@/lib/types";
+import { operadorDisponible, rutaTexto } from "@/lib/types";
 
 /**
  * Servicios asignados a la transportadora propia: los que ejecuta la flota
  * de ADL con unidad y operador propios.
  *
- * "Pendientes de asignación" es donde se elige el económico y el operador;
- * solo al hacer clic en "Programar Servicio" el viaje pasa a Monitoreo.
+ * "Pendientes de asignación" es donde se completa unidad, operador y ruta;
+ * al guardar, el servicio pasa a "programado" en un solo paso y aparece en
+ * Seguridad › Monitoreo.
  */
 export default function AsignacionTDC() {
   const { viajes, unidad, operador } = useStore();
@@ -72,15 +72,7 @@ export default function AsignacionTDC() {
     <>
       <PageTitle
         title="Asignación TDC"
-        subtitle="Elige el económico de la flota propia y el operador; al programar, el servicio pasa a Monitoreo."
-        action={
-          <Link
-            href="/viajes/nuevo"
-            className="rounded-md bg-ink px-3 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            Nuevo viaje
-          </Link>
-        }
+        subtitle="Unidad, operador y código de ruta de la flota propia; al guardar, el servicio se programa solo."
       />
 
       <section className="mb-8">
@@ -135,52 +127,39 @@ export default function AsignacionTDC() {
 }
 
 function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
-  const { viajes, unidades, operadores, asignar, cambiarEstado, nombreDe } = useStore();
+  const { viajes, unidades, operadores, rutas, asignar, cambiarEstado, nombreDe } = useStore();
   const v = viajes.find((x) => x.id === viajeId);
 
   const [unidadId, setUnidadId] = useState(v?.unidadId ?? "");
   const [operadorId, setOperadorId] = useState(v?.operadorId ?? "");
-  const [km, setKm] = useState(v?.km ? String(v.km) : "");
+  const [rutaId, setRutaId] = useState(v?.rutaId ?? "");
   const [tarifa, setTarifa] = useState(v?.tarifa ? String(v.tarifa) : "");
-  const [costo, setCosto] = useState(v?.costo ? String(v.costo) : "");
   const [guardando, setGuardando] = useState(false);
-  const [programando, setProgramando] = useState(false);
 
   if (!v) return null;
 
   const flota = unidades.filter((u) => u.activo);
   const plantilla = operadores.filter((o) => o.activo);
+  const rutasActivas = rutas.filter((r) => r.activo);
 
-  const listo = Boolean(unidadId && operadorId);
+  const unidadElegida = flota.find((u) => u.id === unidadId);
+  const rutaElegida = rutasActivas.find((r) => r.id === rutaId);
+
+  const listo = Boolean(unidadId && operadorId && rutaId);
 
   async function guardar() {
     setGuardando(true);
     try {
+      // Un solo paso: asignar y programar, tal como opera tráfico.
       await asignar(viajeId, {
         unidadId,
         operadorId,
-        km: Number(km) || 0,
+        rutaId,
         tarifa: Number(tarifa) || 0,
-        costo: Number(costo) || 0,
-      });
-    } finally {
-      setGuardando(false);
-    }
-  }
-
-  async function programar() {
-    setProgramando(true);
-    try {
-      await asignar(viajeId, {
-        unidadId,
-        operadorId,
-        km: Number(km) || 0,
-        tarifa: Number(tarifa) || 0,
-        costo: Number(costo) || 0,
       });
       await cambiarEstado(viajeId, "programado");
     } finally {
-      setProgramando(false);
+      setGuardando(false);
     }
   }
 
@@ -200,7 +179,7 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
       <div className="grid gap-3 sm:grid-cols-2">
         <div>
           <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
-            Unidad (flota propia)
+            Unidad (económico)
           </label>
           <select
             className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
@@ -211,7 +190,6 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
             {flota.map((u) => (
               <option key={u.id} value={u.id}>
                 {u.economico} — {u.tipo} · {u.placas}
-                {unidadDisponible(u) ? "" : ` (${u.estado})`}
               </option>
             ))}
           </select>
@@ -236,19 +214,61 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
           </select>
         </div>
 
+        {/* Tipo de unidad y placas: automáticos, de Flota. No se capturan aquí. */}
         <div>
           <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
-            Kilómetros
+            Tipo de unidad
           </label>
-          <input
-            type="number"
-            min={0}
-            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
-            value={km}
-            onChange={(e) => setKm(e.target.value)}
-          />
+          <p className="rounded-md bg-black/[0.03] px-3 py-2 text-sm text-muted">
+            {unidadElegida?.tipo ?? "—"}
+          </p>
         </div>
         <div>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            Placas
+          </label>
+          <p className="rounded-md bg-black/[0.03] px-3 py-2 text-sm text-muted">
+            {unidadElegida?.placas ?? "—"}
+          </p>
+        </div>
+
+        <div className="sm:col-span-2">
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            Código de ruta
+          </label>
+          <select
+            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
+            value={rutaId}
+            onChange={(e) => setRutaId(e.target.value)}
+          >
+            <option value="">Seleccionar ruta</option>
+            {rutasActivas.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.codigo} — {r.origen} → {r.destino}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Km y casetas: automáticos, de la ruta elegida. */}
+        <div>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            Kilómetros proyectados
+          </label>
+          <p className="rounded-md bg-black/[0.03] px-3 py-2 text-sm text-muted">
+            {rutaElegida ? rutaElegida.kmProyectados : "—"}
+          </p>
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            Casetas proyectadas
+          </label>
+          <p className="rounded-md bg-black/[0.03] px-3 py-2 text-sm text-muted">
+            {rutaElegida ? mxn(rutaElegida.casetasProyectadas) : "—"}
+          </p>
+        </div>
+
+        <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
             Tarifa al cliente (MXN)
           </label>
@@ -260,44 +280,23 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
             onChange={(e) => setTarifa(e.target.value)}
           />
         </div>
-        <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
-            Costo operativo (MXN)
-          </label>
-          <input
-            type="number"
-            min={0}
-            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
-            value={costo}
-            onChange={(e) => setCosto(e.target.value)}
-          />
-        </div>
       </div>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4">
         <button
           type="button"
           onClick={guardar}
-          disabled={guardando || programando}
-          className="rounded-md border border-line px-3 py-2 text-sm font-medium hover:bg-black/[0.03] disabled:opacity-60"
-        >
-          {guardando ? "Guardando…" : "Guardar asignación"}
-        </button>
-        <button
-          type="button"
-          onClick={programar}
-          disabled={!listo || guardando || programando}
+          disabled={!listo || guardando}
           className="rounded-md bg-amber px-3 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
         >
-          {programando ? "Programando…" : "Programar Servicio"}
+          {guardando ? "Guardando…" : "Guardar y programar"}
         </button>
       </div>
       {!listo ? (
         <p className="mt-2 text-xs text-muted">
-          Elige unidad y operador para poder programar el servicio.
+          Elige unidad, operador y código de ruta para poder guardar.
         </p>
       ) : null}
     </Card>
   );
 }
-

@@ -31,6 +31,7 @@ import type {
   EstadoViaje,
   Operador,
   Proveedor,
+  Ruta,
   Unidad,
   Viaje,
 } from "./types";
@@ -52,6 +53,7 @@ type Store = {
   tiposNegocio: ItemCatalogo[];
   tiposUnidad: TipoUnidad[];
   tiposMercancia: ItemCatalogo[];
+  rutas: Ruta[];
 
   entrar: (email: string, password: string, mfaCode?: string) => Promise<void>;
   salir: () => Promise<void>;
@@ -79,6 +81,7 @@ type Store = {
   unidad: (id: string) => Unidad | undefined;
   operador: (id: string) => Operador | undefined;
   proveedor: (id: string) => Proveedor | undefined;
+  ruta: (id: string) => Ruta | undefined;
   nombreDe: (clave: ClaveCatalogo, id: string) => string;
   ejecutor: (v: Viaje) => string;
   esFull: (tipoUnidadId: string) => boolean;
@@ -94,6 +97,7 @@ const VACIO: Datos = {
   tiposNegocio: [],
   tiposUnidad: [],
   tiposMercancia: [],
+  rutas: [],
 };
 
 /** Campo del viaje que apunta a cada catálogo, para contar usos. */
@@ -106,6 +110,7 @@ const CAMPO_EN_VIAJE: Record<ClaveCatalogo, keyof Viaje> = {
   tiposNegocio: "tipoNegocioId",
   tiposUnidad: "tipoUnidadId",
   tiposMercancia: "tipoMercanciaId",
+  rutas: "rutaId",
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -212,6 +217,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       datos.operadores.find((o) => o.id === id) as Operador | undefined;
     const proveedor = (id: string) =>
       datos.proveedores.find((p) => p.id === id) as Proveedor | undefined;
+    const ruta = (id: string) => datos.rutas.find((r) => r.id === id) as Ruta | undefined;
 
     const nombreDe = (clave: ClaveCatalogo, id: string) => {
       const item = datos[clave].find((i) => i.id === id) as
@@ -219,6 +225,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         | undefined;
       if (!item) return "—";
       if (clave === "unidades") return String(item.economico ?? "—");
+      if (clave === "rutas") return String(item.codigo ?? "—");
       return String(item.nombre ?? "—");
     };
 
@@ -238,6 +245,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       tiposNegocio: datos.tiposNegocio as unknown as ItemCatalogo[],
       tiposUnidad: datos.tiposUnidad as unknown as TipoUnidad[],
       tiposMercancia: datos.tiposMercancia as unknown as ItemCatalogo[],
+      rutas: datos.rutas as unknown as Ruta[],
 
       entrar,
       salir,
@@ -289,6 +297,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       unidad,
       operador,
       proveedor,
+      ruta,
       nombreDe,
       ejecutor: (v: Viaje) =>
         v.asignacion === "TDC"

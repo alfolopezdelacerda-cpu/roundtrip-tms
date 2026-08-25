@@ -129,7 +129,7 @@ export default function DetalleViaje() {
               {viaje.asignacion === "TDC" ? (
                 <>
                   <Dato k="Unidad" v={u ? `${u.economico} · ${u.placas}` : "Sin asignar"} />
-                  <Dato k="Operador" v={o ? `${o.nombre} · ${o.telefono}` : "Sin asignar"} />
+                  <Dato k="Operador" v={o ? `${o.nombre} · ${o.celular}` : "Sin asignar"} />
                 </>
               ) : (
                 <>

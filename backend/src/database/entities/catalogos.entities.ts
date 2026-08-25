@@ -95,6 +95,42 @@ export class Proveedor extends Base {
   contactoEncrypted: string | null;
 }
 
+/**
+ * Rutas frecuentes con su código y sus proyecciones de kilómetros y
+ * casetas. Es lo que Asignación TDC usa para autocompletar esos dos campos
+ * al elegir un "Código de Ruta": nadie los captura a mano por servicio.
+ */
+@Entity('rutas')
+export class Ruta {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Index('idx_rutas_codigo', { unique: true })
+  @Column({ type: 'varchar', length: 30, unique: true })
+  codigo: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  origen: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  destino: string;
+
+  @Column({ name: 'km_proyectados', type: 'int', default: 0 })
+  kmProyectados: number;
+
+  @Column({ name: 'casetas_proyectadas', type: 'decimal', precision: 12, scale: 2, default: 0 })
+  casetasProyectadas: string;
+
+  @Column({ type: 'boolean', default: true })
+  activo: boolean;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+}
+
 export const ENTIDADES_CATALOGOS = [
   Cliente,
   Proveedor,
@@ -102,4 +138,5 @@ export const ENTIDADES_CATALOGOS = [
   TipoNegocio,
   TipoUnidad,
   TipoMercancia,
+  Ruta,
 ];

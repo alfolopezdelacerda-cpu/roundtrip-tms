@@ -60,6 +60,14 @@ export class Conductor {
   @Column({ name: 'clabe_encrypted', type: 'varchar', length: 500, nullable: true })
   clabeEncrypted: string | null;
 
+  /** Contacto para emergencias en ruta: nombre y teléfono en un solo campo. */
+  @Column({ name: 'contacto_emergencia_encrypted', type: 'varchar', length: 500, nullable: true })
+  contactoEmergenciaEncrypted: string | null;
+
+  /** Número de seguridad social (IMSS). */
+  @Column({ name: 'nss_encrypted', type: 'varchar', length: 500, nullable: true })
+  nssEncrypted: string | null;
+
   @Index('idx_conductores_estado')
   @Column({
     type: 'enum',
@@ -138,6 +146,23 @@ export class Vehiculo {
 
   @Column({ name: 'verificacion_vigente', type: 'boolean', default: false })
   verificacionVigente: boolean;
+
+  @Column({ name: 'verificacion_vencimiento', type: 'date', nullable: true })
+  verificacionVencimiento: string | null;
+
+  @Column({ type: 'varchar', length: 50, nullable: true })
+  color: string | null;
+
+  /**
+   * Expediente digital de la unidad: fotografías y documentos como data URL
+   * (base64). Es una solución de "modo de prueba" — para producción esto
+   * debería vivir en almacenamiento de objetos (S3/Blob), no en la fila.
+   */
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  fotos: string[];
+
+  @Column({ type: 'jsonb', default: () => "'[]'" })
+  documentos: { nombre: string; datos: string }[];
 
   // ---- Datos exigidos por el complemento Carta Porte (Autotransporte) ----
 

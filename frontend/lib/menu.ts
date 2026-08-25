@@ -32,6 +32,7 @@ export const AREAS_MENU: AreaMenu[] = [
     slug: "operaciones",
     titulo: "Operaciones",
     items: [
+      { titulo: "Flota", href: "/operaciones/flota" },
       {
         titulo: "Asignación",
         href: "/asignacion-tdc",
@@ -41,7 +42,7 @@ export const AREAS_MENU: AreaMenu[] = [
         ],
       },
       { titulo: "Solicitar gastos", href: "/operaciones/solicitar-gastos" },
-      { titulo: "Tracking", href: "/monitoreo" },
+      { titulo: "Tracking TDC", href: "/operaciones/tracking" },
       { titulo: "Planificación", href: "/operaciones/planificacion" },
       { titulo: "Liquidación de servicios", href: "/liquidacion" },
       { titulo: "Combustible", href: "/operaciones/combustible" },

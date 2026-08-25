@@ -91,6 +91,8 @@ export default function NuevoViaje() {
         unidadId: "",
         operadorId: "",
         proveedorId: "",
+        rutaId: "",
+        rutaCodigo: "",
         tipoNegocioId: form.tipoNegocioId,
         temperatura: form.temperatura,
         modalidad: form.modalidad,
@@ -102,6 +104,7 @@ export default function NuevoViaje() {
         po: form.po.trim(),
         estado: "por_asignar",
         km: 0,
+        casetasProyectadas: 0,
         tarifa: 0,
         costo: 0,
         cobro: {

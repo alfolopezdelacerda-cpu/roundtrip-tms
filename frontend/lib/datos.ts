@@ -7,7 +7,7 @@ import {
   tiposUnidadSeed,
   type ClaveCatalogo,
 } from "./catalogos";
-import { operadoresSeed, proveedoresSeed, unidadesSeed, viajesSeed } from "./seed";
+import { operadoresSeed, proveedoresSeed, rutasSeed, unidadesSeed, viajesSeed } from "./seed";
 import type { EstadoViaje, Viaje } from "./types";
 
 /**
@@ -37,6 +37,7 @@ export type Datos = {
   tiposNegocio: RegistroCatalogo[];
   tiposUnidad: RegistroCatalogo[];
   tiposMercancia: RegistroCatalogo[];
+  rutas: RegistroCatalogo[];
 };
 
 export type RegistroCatalogo = {
@@ -51,6 +52,8 @@ export type DatosAsignacion = {
   unidadId?: string;
   operadorId?: string;
   proveedorId?: string;
+  /** Solo TDC: al fijarla, el backend copia km y casetas de la ruta. */
+  rutaId?: string;
   km?: number;
   tarifa?: number;
   costo?: number;
@@ -118,6 +121,7 @@ const RUTA_CATALOGO: Record<ClaveCatalogo, string> = {
   tiposNegocio: "tipos-negocio",
   tiposUnidad: "tipos-unidad",
   tiposMercancia: "tipos-mercancia",
+  rutas: "rutas",
 };
 
 const CLAVES = Object.keys(RUTA_CATALOGO) as ClaveCatalogo[];
@@ -302,7 +306,7 @@ function aApi(v: Omit<Viaje, "id" | "folio" | "cartaPorte">): Record<string, unk
 // Fuente: demostración
 // ============================================
 
-const CLAVE_DEMO = "roundtrip-tms:v5";
+const CLAVE_DEMO = "roundtrip-tms:v6";
 
 function fuenteDemo(): FuenteDatos {
   const inicial = (): Datos => ({
@@ -315,6 +319,7 @@ function fuenteDemo(): FuenteDatos {
     tiposNegocio: tiposNegocioSeed as unknown as RegistroCatalogo[],
     tiposUnidad: tiposUnidadSeed as unknown as RegistroCatalogo[],
     tiposMercancia: tiposMercanciaSeed as unknown as RegistroCatalogo[],
+    rutas: rutasSeed as unknown as RegistroCatalogo[],
   });
 
   let datos: Datos = inicial();
@@ -375,16 +380,33 @@ function fuenteDemo(): FuenteDatos {
       return creado;
     },
 
-    asignar: async (id, datos) =>
-      editar(id, (v) => ({
-        ...v,
-        ...(datos.unidadId !== undefined ? { unidadId: datos.unidadId } : {}),
-        ...(datos.operadorId !== undefined ? { operadorId: datos.operadorId } : {}),
-        ...(datos.proveedorId !== undefined ? { proveedorId: datos.proveedorId } : {}),
-        ...(datos.km !== undefined ? { km: datos.km } : {}),
-        ...(datos.tarifa !== undefined ? { tarifa: datos.tarifa } : {}),
-        ...(datos.costo !== undefined ? { costo: datos.costo } : {}),
-      })),
+    asignar: async (id, cambios) =>
+      editar(id, (v) => {
+        // Espeja al backend: elegir ruta copia km y casetas proyectados.
+        const rutaElegida =
+          cambios.rutaId !== undefined
+            ? (datos.rutas.find((r) => r.id === cambios.rutaId) as unknown as
+                | { codigo: string; kmProyectados: number; casetasProyectadas: number }
+                | undefined)
+            : undefined;
+        return {
+          ...v,
+          ...(cambios.unidadId !== undefined ? { unidadId: cambios.unidadId } : {}),
+          ...(cambios.operadorId !== undefined ? { operadorId: cambios.operadorId } : {}),
+          ...(cambios.proveedorId !== undefined ? { proveedorId: cambios.proveedorId } : {}),
+          ...(cambios.rutaId !== undefined
+            ? {
+                rutaId: cambios.rutaId,
+                rutaCodigo: rutaElegida?.codigo ?? "",
+                km: rutaElegida?.kmProyectados ?? 0,
+                casetasProyectadas: rutaElegida?.casetasProyectadas ?? 0,
+              }
+            : {}),
+          ...(cambios.km !== undefined ? { km: cambios.km } : {}),
+          ...(cambios.tarifa !== undefined ? { tarifa: cambios.tarifa } : {}),
+          ...(cambios.costo !== undefined ? { costo: cambios.costo } : {}),
+        };
+      }),
 
     actualizarMonitoreo: async (id, datos) =>
       editar(id, (v) => {
@@ -490,6 +512,7 @@ const CAMPO_EN_VIAJE: Record<ClaveCatalogo, keyof Viaje> = {
   tiposNegocio: "tipoNegocioId",
   tiposUnidad: "tipoUnidadId",
   tiposMercancia: "tipoMercanciaId",
+  rutas: "rutaId",
 };
 
 export function crearFuente(): FuenteDatos {

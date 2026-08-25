@@ -95,11 +95,12 @@ const CATALOGOS: DefinicionCatalogo[] = [
   {
     clave: "operadores",
     titulo: "Operadores",
-    descripcion: "Personal de conducción de la transportadora.",
+    descripcion:
+      "Personal de conducción de la transportadora. El expediente completo se captura en RRHH › Operadores.",
     campos: [
       { clave: "nombre", titulo: "Nombre", tipo: "texto" },
       { clave: "licencia", titulo: "Licencia", tipo: "texto", ancho: "w-36" },
-      { clave: "telefono", titulo: "Teléfono", tipo: "texto", ancho: "w-36" },
+      { clave: "celular", titulo: "Celular", tipo: "texto", ancho: "w-36" },
       { clave: "rfc", titulo: "RFC", tipo: "texto", ancho: "w-36" },
       {
         clave: "estado",
@@ -107,6 +108,24 @@ const CATALOGOS: DefinicionCatalogo[] = [
         tipo: "select",
         opciones: ["activo", "inactivo", "suspendido", "baja"],
         inicial: "activo",
+      },
+    ],
+  },
+  {
+    clave: "rutas",
+    titulo: "Rutas",
+    descripcion:
+      "Rutas frecuentes con su código; Asignación TDC las usa para autocompletar km y casetas proyectados.",
+    campos: [
+      { clave: "codigo", titulo: "Código", tipo: "texto", ancho: "w-32" },
+      { clave: "origen", titulo: "Origen", tipo: "texto" },
+      { clave: "destino", titulo: "Destino", tipo: "texto" },
+      { clave: "kmProyectados", titulo: "Km proyectados", tipo: "numero", inicial: 0 },
+      {
+        clave: "casetasProyectadas",
+        titulo: "Casetas proyectadas",
+        tipo: "numero",
+        inicial: 0,
       },
     ],
   },

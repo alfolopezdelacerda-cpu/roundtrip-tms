@@ -59,6 +59,9 @@ export type Viaje = {
   operadorId: string;
   /** Solo FWD: proveedor que ejecuta el servicio. */
   proveedorId: string;
+  /** Solo TDC: código de ruta: trae km y casetas proyectados. */
+  rutaId: string;
+  rutaCodigo: string;
 
   tipoNegocioId: string;
   temperatura: Temperatura;
@@ -75,6 +78,8 @@ export type Viaje = {
 
   estado: EstadoViaje;
   km: number;
+  /** Solo TDC: casetas proyectadas, copiadas de la ruta al asignar. */
+  casetasProyectadas: number;
 
   /** Lo que se le cobra al cliente (MXN). */
   tarifa: number;
@@ -128,6 +133,9 @@ export type Viaje = {
   notas?: string;
 };
 
+/** Un archivo del expediente digital, guardado como data URL (base64). */
+export type DocumentoUnidad = { nombre: string; datos: string };
+
 export type Unidad = {
   id: string;
   economico: string;
@@ -136,14 +144,42 @@ export type Unidad = {
   capacidadTon: number;
   estado: EstadoUnidad;
   activo: boolean;
+  // Expediente de Flota.
+  marca: string;
+  modelo: string;
+  anio: number | null;
+  vin: string;
+  color: string;
+  polizaSeguro: string;
+  vencimientoSeguro: string | null;
+  verificacionVigente: boolean;
+  verificacionVencimiento: string | null;
+  /** Fotografías como data URL (base64): solución de modo de prueba. */
+  fotos: string[];
+  documentos: DocumentoUnidad[];
 };
 
 export type Operador = {
   id: string;
   nombre: string;
   licencia: string;
-  telefono: string;
+  celular: string;
+  rfc: string;
+  contactoEmergencia: string;
+  /** Número de seguridad social (IMSS). */
+  nss: string;
   estado: EstadoOperador;
+  activo: boolean;
+};
+
+/** Ruta frecuente: código, tramo y sus proyecciones de km y casetas. */
+export type Ruta = {
+  id: string;
+  codigo: string;
+  origen: string;
+  destino: string;
+  kmProyectados: number;
+  casetasProyectadas: number;
   activo: boolean;
 };
 
@@ -327,6 +363,19 @@ export const HITOS_MONITOREO: { clave: keyof Viaje["monitoreo"]; titulo: string 
   { clave: "ingresoDescarga", titulo: "Ingreso a descarga" },
   { clave: "servicioFinalizado", titulo: "Servicio finalizado" },
 ];
+
+/**
+ * Alerta de vigencia para el expediente de Flota: rojo si ya venció, ámbar
+ * si vence en 30 días o menos. Vinculado con Mantenimiento: es la señal que
+ * ese módulo va a consumir cuando exista.
+ */
+export function alertaVigencia(fecha: string | null): Semaforo | null {
+  if (!fecha) return null;
+  const dias = (new Date(`${fecha}T00:00:00Z`).getTime() - Date.now()) / 86_400_000;
+  if (dias < 0) return "rojo";
+  if (dias <= 30) return "amarillo";
+  return null;
+}
 
 /** Fecha de referencia del servicio para ordenar y agrupar. */
 export function fechaServicio(v: Viaje): string {
