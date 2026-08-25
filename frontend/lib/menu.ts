@@ -49,6 +49,11 @@ export const AREAS_MENU: AreaMenu[] = [
     ],
   },
   {
+    slug: "ventas",
+    titulo: "Ventas",
+    items: [{ titulo: "Tarifas", href: "/ventas/tarifas" }],
+  },
+  {
     slug: "seguridad",
     titulo: "Seguridad",
     items: [
@@ -107,7 +112,7 @@ export const AREAS_MENU: AreaMenu[] = [
       { titulo: "CXC", href: "/cxc" },
       { titulo: "Gastos", href: "/finanzas/gastos" },
       { titulo: "Facturación", href: "/finanzas/facturacion" },
-      { titulo: "Rentabilidad por Viaje", href: "/finanzas/rentabilidad-viaje" },
+      { titulo: "Rentabilidad por Viaje", href: "/finanzas/rentabilidad" },
     ],
   },
 ];

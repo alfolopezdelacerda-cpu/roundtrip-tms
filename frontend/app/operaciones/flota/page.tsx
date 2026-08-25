@@ -266,10 +266,10 @@ function FormularioUnidad({
     try {
       if (existente) {
         await actualizarCatalogo("unidades", existente.id, datos);
-      } else {
-        await agregarCatalogo("unidades", datos);
+        onCerrar();
+      } else if (await agregarCatalogo("unidades", datos)) {
+        onCerrar();
       }
-      onCerrar();
     } finally {
       setGuardando(false);
     }

@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Kpi, PageTitle } from "@/components/ui";
 import {
+  AsignacionBadge,
   CobroBadge,
   TablaServicios,
   Totales,
@@ -13,24 +15,35 @@ import {
   type Columna,
 } from "@/components/servicios";
 import { fecha, mxn } from "@/lib/format";
-import { vencimientoCobro } from "@/lib/types";
+import { vencimientoCobro, type Asignacion } from "@/lib/types";
 
 /**
- * Cuentas por cobrar: lo que los clientes deben por servicios ya prestados.
+ * Cuentas por cobrar: lo que los clientes deben, propio (TDC) y de proveedor
+ * (FWD) por igual.
  *
- * Entra aquí todo servicio que terminó y todavía no está cobrado; los
- * cancelados no generan cobro.
+ * Muestra todos los servicios vivos, no solo los ya terminados: contabilidad
+ * necesita ver la cartera que viene, no solo la que ya se puede facturar.
+ * Facturar sigue exigiendo que el servicio esté completado —lo valida el
+ * backend—, así que el botón solo aparece cuando toca.
  */
 export default function CXC() {
   const { viajes, facturar, marcarCobrado } = useStore();
+  const [filtro, setFiltro] = useState<Asignacion | "todos">("todos");
 
   const cartera = viajes
-    .filter((v) => v.estado === "completado" && v.cobro.estado !== "cobrado")
+    .filter((v) => v.estado !== "cancelado" && v.cobro.estado !== "cobrado")
+    .filter((v) => (filtro === "todos" ? true : v.asignacion === filtro))
     .sort((a, b) => (b.cobro.fechaFactura ?? "").localeCompare(a.cobro.fechaFactura ?? ""));
 
   const porFacturar = cartera.filter((v) => v.cobro.estado === "pendiente");
   const vencidos = cartera.filter((v) => v.cobro.estado === "vencido");
   const total = cartera.reduce((s, v) => s + v.tarifa, 0);
+
+  const columnaAsignacion: Columna = {
+    clave: "asignacion",
+    titulo: "Origen",
+    celda: (v) => <AsignacionBadge asignacion={v.asignacion} />,
+  };
 
   const columnaFactura: Columna = {
     clave: "factura",
@@ -77,18 +90,24 @@ export default function CXC() {
     alineacion: "der",
     celda: (v) =>
       v.cobro.estado === "pendiente" ? (
-        <button
-          onClick={() =>
-            facturar(
-              v.id,
-              `A-${10500 + Math.floor(Math.random() * 400)}`,
-              new Date().toISOString().slice(0, 10),
-            )
-          }
-          className="rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
-        >
-          Facturar
-        </button>
+        // No se factura un servicio que aún no termina: el backend lo rechaza,
+        // así que aquí ni se ofrece.
+        v.estado !== "completado" ? (
+          <span className="text-xs text-muted">Al completar</span>
+        ) : (
+          <button
+            onClick={() =>
+              facturar(
+                v.id,
+                `A-${10500 + Math.floor(Math.random() * 400)}`,
+                new Date().toISOString().slice(0, 10),
+              )
+            }
+            className="rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
+          >
+            Facturar
+          </button>
+        )
       ) : (
         <button
           onClick={() => marcarCobrado(v.id)}
@@ -103,7 +122,7 @@ export default function CXC() {
     <>
       <PageTitle
         title="CXC"
-        subtitle="Cuentas por cobrar: servicios prestados pendientes de cobro."
+        subtitle="Cuentas por cobrar de todos los servicios, propios (TDC) y de proveedor (FWD)."
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -129,7 +148,23 @@ export default function CXC() {
         />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 mb-4 flex flex-wrap gap-2">
+        {(["todos", "TDC", "FWD"] as const).map((op) => (
+          <button
+            key={op}
+            onClick={() => setFiltro(op)}
+            className={`rounded-md px-3 py-1.5 text-sm ring-1 ring-inset transition-colors ${
+              filtro === op
+                ? "bg-ink text-white ring-transparent"
+                : "bg-white ring-[#DEE3DD] hover:bg-black/[0.03]"
+            }`}
+          >
+            {op === "todos" ? "Todos" : op}
+          </button>
+        ))}
+      </div>
+
+      <div>
         <TablaServicios
           viajes={cartera}
           vacio="No hay cuentas por cobrar."
@@ -138,6 +173,7 @@ export default function CXC() {
             columnaFolio,
             columnaCliente,
             columnaRuta,
+            columnaAsignacion,
             columnaFactura,
             columnaCredito,
             columnaVencimiento,

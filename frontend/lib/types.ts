@@ -81,10 +81,19 @@ export type Viaje = {
   /** Solo TDC: casetas proyectadas, copiadas de la ruta al asignar. */
   casetasProyectadas: number;
 
-  /** Lo que se le cobra al cliente (MXN). */
+  /** Tarifa de venta, copiada del tarifario de Ventas al dar de alta. */
   tarifa: number;
-  /** Lo que cuesta ejecutarlo: al proveedor en FWD, operativo en TDC. */
+  /** Costo total de ejecución: siempre la suma de `costos`, nunca capturado. */
   costo: number;
+  /** Desglose del costo operativo (Finanzas › Rentabilidad por viaje). */
+  costos: {
+    /** Solo FWD: lo que cobra el proveedor. */
+    proveedor: number;
+    combustible: number;
+    casetas: number;
+    operador: number;
+    otros: number;
+  };
 
   cobro: {
     estado: EstadoCobro;
@@ -170,6 +179,43 @@ export type Operador = {
   nss: string;
   estado: EstadoOperador;
   activo: boolean;
+};
+
+/** Tarifa de venta por cliente y tramo (Ventas › Tarifas). */
+export type Tarifa = {
+  id: string;
+  clienteId: string;
+  /** Nombre del cliente, resuelto por el backend para listar sin cruzar. */
+  cliente: string;
+  origen: string;
+  destino: string;
+  tarifaVenta: number;
+  activo: boolean;
+};
+
+/** Usuario del TMS, tal como lo administra el panel de Administración. */
+export type RolUsuario = "admin" | "manager" | "dispatcher" | "accountant" | "driver";
+
+export const ROLES_USUARIO: { value: RolUsuario; label: string }[] = [
+  { value: "admin", label: "Administrador" },
+  { value: "manager", label: "Gerencia" },
+  { value: "dispatcher", label: "Tráfico" },
+  { value: "accountant", label: "Contabilidad" },
+  { value: "driver", label: "Operador" },
+];
+
+export type Usuario = {
+  id: string;
+  email: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  role: RolUsuario;
+  isActive: boolean;
+  mfaEnabled: boolean;
+  bloqueado: boolean;
+  ultimoAcceso: string | null;
+  createdAt: string | null;
 };
 
 /** Ruta frecuente: código, tramo y sus proyecciones de km y casetas. */
@@ -316,6 +362,16 @@ export function vencimientoCobro(v: Viaje): string | null {
 /** Margen del servicio: lo que queda después de pagar la ejecución. */
 export function margen(v: Viaje): number {
   return v.tarifa - v.costo;
+}
+
+/**
+ * Rentabilidad en porcentaje sobre la venta. Sin tarifa registrada no hay
+ * porcentaje que calcular —dividir entre cero— y devuelve null para que la
+ * pantalla lo muestre como "sin tarifa" en vez de 0%.
+ */
+export function rentabilidad(v: Viaje): number | null {
+  if (!v.tarifa) return null;
+  return (margen(v) / v.tarifa) * 100;
 }
 
 /** En round trip la unidad regresa al origen; en one way, no. */

@@ -133,7 +133,6 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
   const [unidadId, setUnidadId] = useState(v?.unidadId ?? "");
   const [operadorId, setOperadorId] = useState(v?.operadorId ?? "");
   const [rutaId, setRutaId] = useState(v?.rutaId ?? "");
-  const [tarifa, setTarifa] = useState(v?.tarifa ? String(v.tarifa) : "");
   const [guardando, setGuardando] = useState(false);
 
   if (!v) return null;
@@ -151,12 +150,7 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
     setGuardando(true);
     try {
       // Un solo paso: asignar y programar, tal como opera tráfico.
-      await asignar(viajeId, {
-        unidadId,
-        operadorId,
-        rutaId,
-        tarifa: Number(tarifa) || 0,
-      });
+      await asignar(viajeId, { unidadId, operadorId, rutaId });
       await cambiarEstado(viajeId, "programado");
     } finally {
       setGuardando(false);
@@ -268,18 +262,6 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
           </p>
         </div>
 
-        <div className="sm:col-span-2">
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
-            Tarifa al cliente (MXN)
-          </label>
-          <input
-            type="number"
-            min={0}
-            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
-            value={tarifa}
-            onChange={(e) => setTarifa(e.target.value)}
-          />
-        </div>
       </div>
 
       <div className="mt-4">

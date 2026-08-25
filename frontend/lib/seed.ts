@@ -1,4 +1,4 @@
-import type { Operador, Proveedor, Ruta, Unidad, Viaje } from "./types";
+import type { Operador, Proveedor, Ruta, Tarifa, Unidad, Viaje } from "./types";
 
 /** Expediente en blanco: cada unidad del seed solo declara lo que difiere. */
 const EXPEDIENTE_VACIO = {
@@ -49,6 +49,19 @@ export const proveedoresSeed: Proveedor[] = [
   { id: "p4", nombre: "Almacenes Pacífico", tipo: "almacen", diasPago: 30, contacto: "contacto@almpacifico.mx", activo: true },
 ];
 
+export const tarifasSeed: Tarifa[] = [
+  { id: "tf1", clienteId: "c1", cliente: "Grupo Ferretero del Norte", origen: "CDMX", destino: "Monterrey", tarifaVenta: 48500, activo: true },
+  { id: "tf2", clienteId: "c1", cliente: "Grupo Ferretero del Norte", origen: "CDMX", destino: "Querétaro", tarifaVenta: 14300, activo: true },
+  { id: "tf3", clienteId: "c2", cliente: "Alimentos La Huerta", origen: "Guadalajara", destino: "CDMX", tarifaVenta: 31200, activo: true },
+  { id: "tf4", clienteId: "c2", cliente: "Alimentos La Huerta", origen: "CDMX", destino: "Veracruz", tarifaVenta: 22400, activo: true },
+  { id: "tf5", clienteId: "c3", cliente: "Distribuidora Peninsular", origen: "CDMX", destino: "Puebla", tarifaVenta: 9800, activo: true },
+  { id: "tf6", clienteId: "c3", cliente: "Distribuidora Peninsular", origen: "Mérida", destino: "Cancún", tarifaVenta: 24500, activo: true },
+  { id: "tf7", clienteId: "c4", cliente: "Cementos del Bajío", origen: "Querétaro", destino: "León", tarifaVenta: 12750, activo: true },
+  { id: "tf8", clienteId: "c5", cliente: "Comercializadora Andina", origen: "Manzanillo", destino: "CDMX", tarifaVenta: 58900, activo: true },
+  { id: "tf9", clienteId: "c5", cliente: "Comercializadora Andina", origen: "Veracruz", destino: "Querétaro", tarifaVenta: 41800, activo: true },
+  { id: "tf10", clienteId: "c6", cliente: "Textiles del Valle", origen: "Laredo", destino: "Puebla", tarifaVenta: 76400, activo: true },
+];
+
 export const rutasSeed: Ruta[] = [
   { id: "rt1", codigo: "CDMX-MTY", origen: "CDMX", destino: "Monterrey", kmProyectados: 900, casetasProyectadas: 1250, activo: true },
   { id: "rt2", codigo: "GDL-CDMX", origen: "Guadalajara", destino: "CDMX", kmProyectados: 550, casetasProyectadas: 780, activo: true },
@@ -86,9 +99,29 @@ const MONITOREO_VACIO: Viaje["monitoreo"] = {
  * no tener que repetir los diez y tantos campos que no cambian.
  */
 function servicio(
-  v: Partial<Omit<Viaje, "monitoreo">> &
-    Pick<Viaje, "id" | "folio" | "cliente"> & { monitoreo?: Partial<Viaje["monitoreo"]> },
+  v: Partial<Omit<Viaje, "monitoreo" | "costos">> &
+    Pick<Viaje, "id" | "folio" | "cliente"> & {
+      monitoreo?: Partial<Viaje["monitoreo"]>;
+      costos?: Partial<Viaje["costos"]>;
+    },
 ): Viaje {
+  // El desglose manda: el total siempre es su suma, igual que en el backend.
+  // Lo que un registro declare como `costo` sin desglosar se atribuye al
+  // proveedor en FWD y a "otros" en TDC, que es donde semánticamente cae.
+  const costos: Viaje["costos"] = {
+    proveedor: 0,
+    combustible: 0,
+    casetas: 0,
+    operador: 0,
+    otros: 0,
+    ...(v.costos ??
+      (v.costo
+        ? v.asignacion === "FWD"
+          ? { proveedor: v.costo }
+          : { otros: v.costo }
+        : {})),
+  };
+
   return {
     cartaPorte: `CP-2026-${v.folio.replace(/\D/g, "")}`,
     clienteId: "",
@@ -116,11 +149,12 @@ function servicio(
     km: 0,
     casetasProyectadas: 0,
     tarifa: 0,
-    costo: 0,
     cobro: { estado: "pendiente", factura: null, fechaFactura: null, diasCredito: 30 },
     pago: { estado: "pendiente", referencia: null, fechaPago: null },
     liquidacion: { estado: "pendiente", fecha: null },
     ...v,
+    costos,
+    costo: Object.values(costos).reduce((suma, parte) => suma + parte, 0),
     monitoreo: { ...MONITOREO_VACIO, ...v.monitoreo },
   };
 }
@@ -151,7 +185,7 @@ export const viajesSeed: Viaje[] = [
     contenedor2: "MSCU-4471204",
     po: "PO-88231",
     tarifa: 48500,
-    costo: 31400,
+    costos: { proveedor: 0, combustible: 18200, casetas: 6400, operador: 5300, otros: 1500 },
     monitoreo: {
       avance: 78,
       ubicacion: "Saltillo, Coahuila",
@@ -289,7 +323,7 @@ export const viajesSeed: Viaje[] = [
     tipoUnidadId: "tu1",
     tipoMercanciaId: "tm7",
     tarifa: 12750,
-    costo: 7900,
+    costos: { proveedor: 0, combustible: 4600, casetas: 1900, operador: 1100, otros: 300 },
     cobro: { estado: "cobrado", factura: "A-10430", fechaFactura: "2026-07-28", diasCredito: 30 },
     pago: { estado: "pagado", referencia: "SPEI-88213", fechaPago: "2026-08-11" },
     liquidacion: { estado: "liquidado", fecha: "2026-08-12" },

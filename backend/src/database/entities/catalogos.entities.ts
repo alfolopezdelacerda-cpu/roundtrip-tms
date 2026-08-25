@@ -3,6 +3,8 @@ import {
   CreateDateColumn,
   Entity,
   Index,
+  JoinColumn,
+  ManyToOne,
   PrimaryGeneratedColumn,
   UpdateDateColumn,
 } from 'typeorm';
@@ -131,6 +133,42 @@ export class Ruta {
   updatedAt: Date;
 }
 
+/**
+ * Tarifa de venta por cliente y tramo (Ventas › Tarifas).
+ *
+ * Es el único lugar donde se define cuánto se le cobra al cliente: al dar de
+ * alta un servicio se busca aquí la tarifa que corresponde a su cliente,
+ * origen y destino y se copia al servicio. Por eso Asignación ya no la pide.
+ */
+@Entity('tarifas')
+@Index('idx_tarifas_tramo', ['origen', 'destino'])
+export class Tarifa {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @ManyToOne(() => Cliente, { nullable: false, eager: true, onDelete: 'CASCADE' })
+  @JoinColumn({ name: 'cliente_id' })
+  cliente: Cliente;
+
+  @Column({ type: 'varchar', length: 255 })
+  origen: string;
+
+  @Column({ type: 'varchar', length: 255 })
+  destino: string;
+
+  @Column({ name: 'tarifa_venta', type: 'decimal', precision: 15, scale: 2, default: 0 })
+  tarifaVenta: string;
+
+  @Column({ type: 'boolean', default: true })
+  activo: boolean;
+
+  @CreateDateColumn({ name: 'created_at' })
+  createdAt: Date;
+
+  @UpdateDateColumn({ name: 'updated_at' })
+  updatedAt: Date;
+}
+
 export const ENTIDADES_CATALOGOS = [
   Cliente,
   Proveedor,
@@ -139,4 +177,5 @@ export const ENTIDADES_CATALOGOS = [
   TipoUnidad,
   TipoMercancia,
   Ruta,
+  Tarifa,
 ];

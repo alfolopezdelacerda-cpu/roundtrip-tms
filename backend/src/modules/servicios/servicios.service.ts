@@ -15,12 +15,14 @@ import {
   Cliente,
   Puerto,
   Ruta,
+  Tarifa,
   TipoMercancia,
   TipoNegocio,
   TipoUnidad,
 } from '../../database/entities/catalogos.entities';
 import { Conductor, Vehiculo } from '../../database/entities/transportes.entities';
 import type {
+  ActualizarCostosDto,
   ActualizarMonitoreoDto,
   ActualizarServicioDto,
   CambiarEstadoDto,
@@ -49,6 +51,7 @@ export class ServiciosService {
     @InjectRepository(Vehiculo) private readonly vehiculos: Repository<Vehiculo>,
     @InjectRepository(Conductor) private readonly conductores: Repository<Conductor>,
     @InjectRepository(Ruta) private readonly rutas: Repository<Ruta>,
+    @InjectRepository(Tarifa) private readonly tarifas: Repository<Tarifa>,
     private readonly dataSource: DataSource,
   ) {}
 
@@ -152,6 +155,10 @@ export class ServiciosService {
     const relaciones = await this.resolverRelaciones(dto);
     const { cliente, puerto } = this.validarAsignacion(dto, relaciones);
 
+    // La tarifa no se captura: sale del tarifario de Ventas según cliente y
+    // tramo. Sin tarifa registrada queda en cero y CXC lo delata.
+    const tarifa = await this.tarifaDeVenta(cliente.id, dto.origen, dto.destino);
+
     const citaCarga = new Date(dto.citaCarga);
     const citaDescarga = dto.citaDescarga ? new Date(dto.citaDescarga) : citaCarga;
     if (citaDescarga < citaCarga) {
@@ -192,7 +199,9 @@ export class ServiciosService {
         // unidad+operador o proveedor y hace clic en "Programar Servicio".
         estado: (dto.estado as EstadoServicio) ?? 'por_asignar',
         km: dto.km ?? 0,
-        tarifa: String(dto.tarifa ?? 0),
+        tarifa: String(tarifa),
+        // El total es derivado: lo que venga en el alta entra como "otros".
+        costoOtros: String(dto.costo ?? 0),
         costo: String(dto.costo ?? 0),
         cobroDiasCredito: dto.diasCredito ?? cliente.diasCredito,
         cpOrigen: dto.cpOrigen ?? null,
@@ -272,8 +281,11 @@ export class ServiciosService {
     if (dto.booking !== undefined) servicio.booking = dto.booking.trim();
     if (dto.po !== undefined) servicio.po = dto.po.trim();
     if (dto.km !== undefined) servicio.km = dto.km;
-    if (dto.tarifa !== undefined) servicio.tarifa = String(dto.tarifa);
-    if (dto.costo !== undefined) servicio.costo = String(dto.costo);
+    // El costo del proveedor es una parte del desglose, no el total: el total
+    // se recalcula abajo sumando todas las partes.
+    if (dto.costoProveedor !== undefined) {
+      servicio.costoProveedor = String(dto.costoProveedor);
+    }
     if (dto.diasCredito !== undefined) servicio.cobroDiasCredito = dto.diasCredito;
     if (dto.cpOrigen !== undefined) servicio.cpOrigen = dto.cpOrigen;
     if (dto.cpDestino !== undefined) servicio.cpDestino = dto.cpDestino;
@@ -292,9 +304,79 @@ export class ServiciosService {
       );
     }
 
+    // Cambiar cliente o tramo cambia la tarifa que aplica: se vuelve a leer
+    // del tarifario en vez de arrastrar la del tramo anterior.
+    if (dto.clienteId !== undefined || dto.origen !== undefined || dto.destino !== undefined) {
+      servicio.tarifa = String(
+        await this.tarifaDeVenta(servicio.cliente.id, servicio.origen, servicio.destino),
+      );
+    }
+
+    this.recalcularCosto(servicio);
+
     await this.servicios.save(servicio);
     logger.audit({ tipo: 'servicio_actualizado', servicioId: id });
     return this.obtener(id);
+  }
+
+  /**
+   * Costo operativo del servicio (Finanzas › Rentabilidad por viaje). Es el
+   * único lugar donde se captura el desglose; el total y, con él, CXP y el
+   * margen salen de la suma.
+   */
+  async actualizarCostos(id: string, dto: ActualizarCostosDto) {
+    const servicio = await this.exigir(id);
+
+    if (dto.costoProveedor !== undefined) {
+      servicio.costoProveedor = String(dto.costoProveedor);
+    }
+    if (dto.costoCombustible !== undefined) {
+      servicio.costoCombustible = String(dto.costoCombustible);
+    }
+    if (dto.costoCasetas !== undefined) servicio.costoCasetas = String(dto.costoCasetas);
+    if (dto.costoOperador !== undefined) servicio.costoOperador = String(dto.costoOperador);
+    if (dto.costoOtros !== undefined) servicio.costoOtros = String(dto.costoOtros);
+
+    this.recalcularCosto(servicio);
+
+    await this.servicios.save(servicio);
+    logger.audit({ tipo: 'servicio_costos', servicioId: id, costo: servicio.costo });
+    return this.obtener(id);
+  }
+
+  /** El total nunca se captura: siempre es la suma del desglose. */
+  private recalcularCosto(servicio: Servicio) {
+    const partes = [
+      servicio.costoProveedor,
+      servicio.costoCombustible,
+      servicio.costoCasetas,
+      servicio.costoOperador,
+      servicio.costoOtros,
+    ];
+    servicio.costo = String(partes.reduce((suma, parte) => suma + Number(parte ?? 0), 0));
+  }
+
+  /**
+   * Tarifa de venta del tramo según el tarifario de Ventas. El tramo se
+   * compara sin distinguir mayúsculas ni espacios sobrantes, porque origen y
+   * destino se escriben a mano en el alta.
+   */
+  private async tarifaDeVenta(
+    clienteId: string,
+    origen?: string,
+    destino?: string,
+  ): Promise<number> {
+    if (!origen || !destino) return 0;
+
+    const tarifa = await this.tarifas
+      .createQueryBuilder('t')
+      .where('t.cliente_id = :clienteId', { clienteId })
+      .andWhere('LOWER(TRIM(t.origen)) = LOWER(TRIM(:origen))', { origen })
+      .andWhere('LOWER(TRIM(t.destino)) = LOWER(TRIM(:destino))', { destino })
+      .andWhere('t.activo = true')
+      .getOne();
+
+    return tarifa ? Number(tarifa.tarifaVenta) : 0;
   }
 
   // ============================================
@@ -596,6 +678,13 @@ export class ServiciosService {
       km: s.km,
       casetasProyectadas: Number(s.casetasProyectadas),
       tarifa,
+      costos: {
+        proveedor: Number(s.costoProveedor),
+        combustible: Number(s.costoCombustible),
+        casetas: Number(s.costoCasetas),
+        operador: Number(s.costoOperador),
+        otros: Number(s.costoOtros),
+      },
       costo,
       margen: tarifa - costo,
       cobro: {

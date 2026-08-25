@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  IsUUID,
   Length,
   Max,
   Min,
@@ -236,6 +237,16 @@ export class CatalogoDto {
   @IsNumber()
   @Min(0)
   casetasProyectadas?: number;
+
+  // --- tarifas (Ventas) ---
+  @IsOptional()
+  @IsUUID()
+  clienteId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  tarifaVenta?: number;
 
   /**
    * Estado operativo. Los valores válidos difieren entre unidades

@@ -7,8 +7,15 @@ import {
   tiposUnidadSeed,
   type ClaveCatalogo,
 } from "./catalogos";
-import { operadoresSeed, proveedoresSeed, rutasSeed, unidadesSeed, viajesSeed } from "./seed";
-import type { EstadoViaje, Viaje } from "./types";
+import {
+  operadoresSeed,
+  proveedoresSeed,
+  rutasSeed,
+  tarifasSeed,
+  unidadesSeed,
+  viajesSeed,
+} from "./seed";
+import type { EstadoViaje, RolUsuario, Usuario, Viaje } from "./types";
 
 /**
  * Origen de los datos.
@@ -38,6 +45,7 @@ export type Datos = {
   tiposUnidad: RegistroCatalogo[];
   tiposMercancia: RegistroCatalogo[];
   rutas: RegistroCatalogo[];
+  tarifas: RegistroCatalogo[];
 };
 
 export type RegistroCatalogo = {
@@ -55,8 +63,20 @@ export type DatosAsignacion = {
   /** Solo TDC: al fijarla, el backend copia km y casetas de la ruta. */
   rutaId?: string;
   km?: number;
-  tarifa?: number;
-  costo?: number;
+  /** Solo FWD: lo que cobra el proveedor. La tarifa sale del tarifario. */
+  costoProveedor?: number;
+};
+
+/**
+ * Desglose del costo operativo (Finanzas › Rentabilidad por viaje). El total
+ * no se manda: el backend lo recalcula sumando las partes.
+ */
+export type DatosCostos = {
+  costoProveedor?: number;
+  costoCombustible?: number;
+  costoCasetas?: number;
+  costoOperador?: number;
+  costoOtros?: number;
 };
 
 /** Captura manual en el tablero de Monitoreo. */
@@ -95,6 +115,7 @@ export type FuenteDatos = {
   cargar: () => Promise<Datos>;
   crearViaje: (v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => Promise<Viaje>;
   asignar: (id: string, datos: DatosAsignacion) => Promise<Viaje>;
+  actualizarCostos: (id: string, datos: DatosCostos) => Promise<Viaje>;
   actualizarMonitoreo: (id: string, datos: DatosMonitoreoManual) => Promise<Viaje>;
   cambiarEstado: (id: string, estado: EstadoViaje) => Promise<Viaje>;
   facturar: (id: string, factura: string, fechaFactura: string) => Promise<Viaje>;
@@ -109,7 +130,28 @@ export type FuenteDatos = {
     cambios: Record<string, unknown>,
   ) => Promise<Datos>;
   eliminarCatalogo: (clave: ClaveCatalogo, id: string) => Promise<ResultadoBorrado>;
+
+  // --- Administración de usuarios (solo modo API: la demo no tiene sesión) ---
+  listarUsuarios: () => Promise<Usuario[]>;
+  permisosPorRol: () => Promise<Record<RolUsuario, string[]>>;
+  crearUsuario: (datos: NuevoUsuario) => Promise<Usuario>;
+  actualizarUsuario: (id: string, cambios: CambiosUsuario) => Promise<Usuario>;
+  cambiarPasswordUsuario: (id: string, password: string) => Promise<void>;
+  eliminarUsuario: (id: string) => Promise<void>;
 };
+
+export type NuevoUsuario = {
+  email: string;
+  username: string;
+  password: string;
+  role: RolUsuario;
+  firstName?: string;
+  lastName?: string;
+};
+
+export type CambiosUsuario = Partial<
+  Pick<Usuario, "email" | "username" | "role" | "firstName" | "lastName" | "isActive">
+>;
 
 /** Nombre del catálogo en la API (kebab-case) para cada clave del frontend. */
 const RUTA_CATALOGO: Record<ClaveCatalogo, string> = {
@@ -122,6 +164,7 @@ const RUTA_CATALOGO: Record<ClaveCatalogo, string> = {
   tiposUnidad: "tipos-unidad",
   tiposMercancia: "tipos-mercancia",
   rutas: "rutas",
+  tarifas: "tarifas",
 };
 
 const CLAVES = Object.keys(RUTA_CATALOGO) as ClaveCatalogo[];
@@ -181,6 +224,12 @@ function fuenteApi(): FuenteDatos {
         cuerpo: datos,
       }).then(deApi),
 
+    actualizarCostos: (id, datos) =>
+      peticion<ServicioApi>(`/api/v1/servicios/${id}/costos`, {
+        metodo: "PATCH",
+        cuerpo: datos,
+      }).then(deApi),
+
     actualizarMonitoreo: (id, datos) =>
       peticion<ServicioApi>(`/api/v1/servicios/${id}/monitoreo`, {
         metodo: "PATCH",
@@ -227,6 +276,23 @@ function fuenteApi(): FuenteDatos {
         throw error;
       }
     },
+
+    listarUsuarios: () => peticion<Usuario[]>("/api/v1/usuarios"),
+    permisosPorRol: () =>
+      peticion<Record<RolUsuario, string[]>>("/api/v1/usuarios/permisos"),
+    crearUsuario: (datos) =>
+      peticion<Usuario>("/api/v1/usuarios", { metodo: "POST", cuerpo: datos }),
+    actualizarUsuario: (id, cambios) =>
+      peticion<Usuario>(`/api/v1/usuarios/${id}`, { metodo: "PATCH", cuerpo: cambios }),
+    cambiarPasswordUsuario: async (id, password) => {
+      await peticion(`/api/v1/usuarios/${id}/password`, {
+        metodo: "POST",
+        cuerpo: { password },
+      });
+    },
+    eliminarUsuario: async (id) => {
+      await peticion(`/api/v1/usuarios/${id}`, { metodo: "DELETE" });
+    },
   };
 }
 
@@ -259,6 +325,41 @@ function deApi(s: ServicioApi): Viaje {
     notas: s.notas ?? undefined,
     monitoreo,
   };
+}
+
+/**
+ * Aplica un cambio parcial al desglose de costos y recalcula el total, igual
+ * que hace el backend: `costo` nunca se captura, siempre es la suma.
+ */
+function conCostos(
+  v: Viaje,
+  cambios: Partial<Viaje["costos"]>,
+): Pick<Viaje, "costos" | "costo"> {
+  const costos = { ...v.costos, ...cambios };
+  const costo = Object.values(costos).reduce((suma, parte) => suma + (parte || 0), 0);
+  return { costos, costo };
+}
+
+/**
+ * Tarifa de venta del tramo según el tarifario. Compara sin distinguir
+ * mayúsculas ni espacios sobrantes porque origen y destino se escriben a
+ * mano en el alta.
+ */
+function tarifaDeVenta(
+  tarifas: RegistroCatalogo[],
+  clienteId: string,
+  origen: string,
+  destino: string,
+): number {
+  const normalizar = (s: string) => s.trim().toLowerCase();
+  const encontrada = tarifas.find(
+    (t) =>
+      t.activo &&
+      t.clienteId === clienteId &&
+      normalizar(String(t.origen ?? "")) === normalizar(origen) &&
+      normalizar(String(t.destino ?? "")) === normalizar(destino),
+  );
+  return encontrada ? Number(encontrada.tarifaVenta ?? 0) : 0;
 }
 
 /** Los hitos viajan en datetime-local; la API los quiere en ISO (o null). */
@@ -295,7 +396,7 @@ function aApi(v: Omit<Viaje, "id" | "folio" | "cartaPorte">): Record<string, unk
     po: v.po,
     estado: v.estado,
     km: v.km,
-    tarifa: v.tarifa,
+    // La tarifa no se manda: el backend la resuelve del tarifario de Ventas.
     costo: v.costo,
     diasCredito: v.cobro.diasCredito,
     ...(v.notas ? { notas: v.notas } : {}),
@@ -306,7 +407,7 @@ function aApi(v: Omit<Viaje, "id" | "folio" | "cartaPorte">): Record<string, unk
 // Fuente: demostración
 // ============================================
 
-const CLAVE_DEMO = "roundtrip-tms:v6";
+const CLAVE_DEMO = "roundtrip-tms:v7";
 
 function fuenteDemo(): FuenteDatos {
   const inicial = (): Datos => ({
@@ -320,6 +421,7 @@ function fuenteDemo(): FuenteDatos {
     tiposUnidad: tiposUnidadSeed as unknown as RegistroCatalogo[],
     tiposMercancia: tiposMercanciaSeed as unknown as RegistroCatalogo[],
     rutas: rutasSeed as unknown as RegistroCatalogo[],
+    tarifas: tarifasSeed as unknown as RegistroCatalogo[],
   });
 
   let datos: Datos = inicial();
@@ -374,6 +476,8 @@ function fuenteDemo(): FuenteDatos {
         id: `v${Date.now()}`,
         folio: `RT-${consecutivo}`,
         cartaPorte: `CP-${new Date().getFullYear()}-${consecutivo}`,
+        // Espeja al backend: la tarifa sale del tarifario de Ventas, no del alta.
+        tarifa: tarifaDeVenta(datos.tarifas, v.clienteId, v.origen, v.destino),
       };
       datos = { ...datos, viajes: [creado, ...datos.viajes] };
       guardar();
@@ -403,10 +507,31 @@ function fuenteDemo(): FuenteDatos {
               }
             : {}),
           ...(cambios.km !== undefined ? { km: cambios.km } : {}),
-          ...(cambios.tarifa !== undefined ? { tarifa: cambios.tarifa } : {}),
-          ...(cambios.costo !== undefined ? { costo: cambios.costo } : {}),
+          ...(cambios.costoProveedor !== undefined
+            ? conCostos(v, { proveedor: cambios.costoProveedor })
+            : {}),
         };
       }),
+
+    actualizarCostos: async (id, cambios) =>
+      editar(id, (v) =>
+        ({
+          ...v,
+          ...conCostos(v, {
+            ...(cambios.costoProveedor !== undefined
+              ? { proveedor: cambios.costoProveedor }
+              : {}),
+            ...(cambios.costoCombustible !== undefined
+              ? { combustible: cambios.costoCombustible }
+              : {}),
+            ...(cambios.costoCasetas !== undefined ? { casetas: cambios.costoCasetas } : {}),
+            ...(cambios.costoOperador !== undefined
+              ? { operador: cambios.costoOperador }
+              : {}),
+            ...(cambios.costoOtros !== undefined ? { otros: cambios.costoOtros } : {}),
+          }),
+        }) as Viaje,
+      ),
 
     actualizarMonitoreo: async (id, datos) =>
       editar(id, (v) => {
@@ -499,7 +624,23 @@ function fuenteDemo(): FuenteDatos {
       guardar();
       return { desactivado: false, usos: 0 };
     },
+
+    // La demostración corre sin sesión ni backend: no hay usuarios que
+    // administrar, y fingirlos daría una falsa sensación de control.
+    listarUsuarios: async () => [],
+    permisosPorRol: async () => ({}) as Record<RolUsuario, string[]>,
+    crearUsuario: sinUsuariosEnDemo,
+    actualizarUsuario: sinUsuariosEnDemo,
+    cambiarPasswordUsuario: sinUsuariosEnDemo,
+    eliminarUsuario: sinUsuariosEnDemo,
   };
+}
+
+/** Cualquier escritura sobre usuarios en modo demostración. */
+function sinUsuariosEnDemo(): never {
+  throw new Error(
+    "La administración de usuarios necesita el backend; el modo demostración no tiene sesión.",
+  );
 }
 
 /** Campo del viaje que apunta a cada catálogo (para contar usos en demo). */
@@ -513,6 +654,9 @@ const CAMPO_EN_VIAJE: Record<ClaveCatalogo, keyof Viaje> = {
   tiposUnidad: "tipoUnidadId",
   tiposMercancia: "tipoMercanciaId",
   rutas: "rutaId",
+  // El servicio no guarda de qué tarifa salió su importe: lo copia al alta.
+  // Sin columna que consultar, una tarifa nunca cuenta como "en uso".
+  tarifas: "id",
 };
 
 export function crearFuente(): FuenteDatos {

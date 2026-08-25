@@ -11,6 +11,7 @@ import {
   Proveedor,
   Puerto,
   Ruta,
+  Tarifa,
   TipoMercancia,
   TipoNegocio,
   TipoUnidad,
@@ -31,6 +32,7 @@ export const TIPOS_CATALOGO = [
   'tipos-unidad',
   'tipos-mercancia',
   'rutas',
+  'tarifas',
 ] as const;
 
 export type TipoCatalogo = (typeof TIPOS_CATALOGO)[number];
@@ -48,6 +50,7 @@ export class CatalogosService {
     @InjectRepository(Vehiculo) private readonly vehiculos: Repository<Vehiculo>,
     @InjectRepository(Conductor) private readonly conductores: Repository<Conductor>,
     @InjectRepository(Ruta) private readonly rutas: Repository<Ruta>,
+    @InjectRepository(Tarifa) private readonly tarifas: Repository<Tarifa>,
     @InjectRepository(Servicio) private readonly servicios: Repository<Servicio>,
     private readonly encryption: EncryptionService,
   ) {}
@@ -63,6 +66,7 @@ export class CatalogosService {
       'tipos-unidad': this.tiposUnidad,
       'tipos-mercancia': this.tiposMercancia,
       rutas: this.rutas,
+      tarifas: this.tarifas,
     };
     const repo = mapa[tipo];
     if (!repo) throw new BadRequestException(`Catálogo desconocido: ${tipo}`);
@@ -84,6 +88,7 @@ export class CatalogosService {
       'tipos-unidad': 'tipo_unidad_id',
       'tipos-mercancia': 'tipo_mercancia_id',
       rutas: 'ruta_id',
+      tarifas: '',
     }[tipo];
   }
 
@@ -95,6 +100,7 @@ export class CatalogosService {
     if (tipo === 'unidades') return 'economico';
     if (tipo === 'operadores') return 'nombreCompleto';
     if (tipo === 'rutas') return 'codigo';
+    if (tipo === 'tarifas') return 'origen';
     return 'nombre';
   }
 
@@ -115,6 +121,8 @@ export class CatalogosService {
   }
 
   async crear(tipo: TipoCatalogo, datos: Record<string, unknown>) {
+    if (tipo === 'tarifas') await this.exigirTramoLibre(datos);
+
     const repo = this.repositorio(tipo);
     const registro = repo.create(this.aPersistencia(tipo, datos));
     const guardado = await repo.save(registro);
@@ -123,6 +131,8 @@ export class CatalogosService {
   }
 
   async actualizar(tipo: TipoCatalogo, id: string, datos: Record<string, unknown>) {
+    if (tipo === 'tarifas') await this.exigirTramoLibre(datos, id);
+
     const repo = this.repositorio(tipo);
     const registro = await repo.findOne({ where: { id } });
     if (!registro) throw new NotFoundException('Registro de catálogo no encontrado');
@@ -159,10 +169,45 @@ export class CatalogosService {
 
   /** Cuántos servicios referencian el registro. */
   async usos(tipo: TipoCatalogo, id: string): Promise<number> {
+    // El servicio no guarda de qué tarifa salió su importe: lo copia al dar
+    // de alta. Sin columna que consultar, una tarifa nunca está "en uso" y
+    // siempre se puede borrar.
+    const columna = this.columnaEnServicio(tipo);
+    if (!columna) return 0;
+
     return this.servicios
       .createQueryBuilder('s')
-      .where(`s.${this.columnaEnServicio(tipo)} = :id`, { id })
+      .where(`s.${columna} = :id`, { id })
       .getCount();
+  }
+
+  /**
+   * Un cliente no puede tener dos tarifas para el mismo tramo: al dar de alta
+   * un servicio se busca una sola, y con duplicados cuál gana sería
+   * arbitrario. Se compara igual que esa búsqueda: sin distinguir mayúsculas
+   * ni espacios sobrantes.
+   */
+  private async exigirTramoLibre(datos: Record<string, unknown>, excluirId?: string) {
+    const { clienteId, origen, destino } = datos as {
+      clienteId?: string;
+      origen?: string;
+      destino?: string;
+    };
+    if (!clienteId || !origen || !destino) return;
+
+    const qb = this.tarifas
+      .createQueryBuilder('t')
+      .where('t.cliente_id = :clienteId', { clienteId })
+      .andWhere('LOWER(TRIM(t.origen)) = LOWER(TRIM(:origen))', { origen })
+      .andWhere('LOWER(TRIM(t.destino)) = LOWER(TRIM(:destino))', { destino });
+
+    if (excluirId) qb.andWhere('t.id <> :excluirId', { excluirId });
+
+    if (await qb.getExists()) {
+      throw new ConflictException(
+        'Ese cliente ya tiene una tarifa para ese tramo; edita la existente en vez de duplicarla.',
+      );
+    }
   }
 
   // ============================================
@@ -178,6 +223,12 @@ export class CatalogosService {
   private aPersistencia(tipo: TipoCatalogo, datos: Record<string, unknown>) {
     const copia = { ...datos };
     delete copia.id;
+
+    // La tarifa llega con `clienteId` plano y se guarda como relación.
+    if (tipo === 'tarifas' && typeof copia.clienteId === 'string') {
+      copia.cliente = { id: copia.clienteId };
+      delete copia.clienteId;
+    }
 
     if (tipo === 'proveedores' && typeof copia.contacto === 'string') {
       copia.contactoEncrypted = copia.contacto
@@ -310,6 +361,18 @@ export class CatalogosService {
         destino: r.destino,
         kmProyectados: r.kmProyectados,
         casetasProyectadas: r.casetasProyectadas ? Number(r.casetasProyectadas) : 0,
+        activo: r.activo,
+      };
+    }
+
+    if (tipo === 'tarifas') {
+      return {
+        id: r.id,
+        clienteId: r.cliente?.id ?? '',
+        cliente: r.cliente?.nombre ?? '',
+        origen: r.origen,
+        destino: r.destino,
+        tarifaVenta: r.tarifaVenta ? Number(r.tarifaVenta) : 0,
         activo: r.activo,
       };
     }

@@ -6,6 +6,7 @@ import type { TypeOrmModuleOptions } from '@nestjs/typeorm';
 import * as Joi from 'joi';
 
 import { AuthModule } from './modules/auth/auth.module';
+import { UsuariosModule } from './modules/usuarios/usuarios.module';
 import { CatalogosModule } from './modules/catalogos/catalogos.module';
 import { ServiciosModule } from './modules/servicios/servicios.module';
 import { SatModule } from './modules/sat/sat.module';
@@ -112,6 +113,7 @@ function opcionesBase(config: ConfigService, url: string | undefined): TypeOrmMo
 
     EncryptionModule,
     AuthModule,
+    UsuariosModule,
     CatalogosModule,
     ServiciosModule,
     SatModule,

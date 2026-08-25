@@ -13,6 +13,7 @@ import {
 } from '@nestjs/common';
 import { ServiciosService } from './servicios.service';
 import {
+  ActualizarCostosDto,
   ActualizarMonitoreoDto,
   ActualizarServicioDto,
   CambiarEstadoDto,
@@ -60,6 +61,17 @@ export class ServiciosController {
     @Body() dto: ActualizarServicioDto,
   ) {
     return this.servicios.actualizar(id, dto);
+  }
+
+  /** Desglose del costo operativo (Finanzas › Rentabilidad por viaje). */
+  @Patch(':id/costos')
+  @Roles('admin', 'manager', 'accountant')
+  @UseGuards(RolesGuard)
+  actualizarCostos(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: ActualizarCostosDto,
+  ) {
+    return this.servicios.actualizarCostos(id, dto);
   }
 
   /** Datos manuales que se capturan cuando el servicio cae en Monitoreo. */

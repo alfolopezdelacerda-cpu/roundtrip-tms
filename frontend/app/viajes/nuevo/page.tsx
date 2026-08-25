@@ -105,8 +105,11 @@ export default function NuevoViaje() {
         estado: "por_asignar",
         km: 0,
         casetasProyectadas: 0,
+        // La tarifa la resuelve el tarifario de Ventas según cliente y tramo;
+        // el costo se captura después en Finanzas › Rentabilidad por viaje.
         tarifa: 0,
         costo: 0,
+        costos: { proveedor: 0, combustible: 0, casetas: 0, operador: 0, otros: 0 },
         cobro: {
           estado: "pendiente",
           factura: null,
@@ -152,7 +155,7 @@ export default function NuevoViaje() {
     <>
       <PageTitle
         title="Asignación de Servicio"
-        subtitle="Folio y carta porte se asignan automáticamente al guardar. Unidad, operador o proveedor se eligen después, en Asignación TDC/FWD."
+        subtitle="Al asignar, el servicio queda «Por asignar»: folio y carta porte salen automáticos, y la unidad, el operador o el proveedor se eligen en Asignación TDC/FWD."
       />
 
       <Card className="max-w-4xl p-5">
@@ -378,7 +381,7 @@ export default function NuevoViaje() {
               disabled={guardando}
               className="rounded-md bg-amber px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
             >
-              {guardando ? "Guardando…" : "Guardar viaje"}
+              {guardando ? "Asignando…" : "Asignar"}
             </button>
             <button
               type="button"

@@ -19,11 +19,14 @@ import {
 } from "./api";
 import {
   crearFuente,
+  type CambiosUsuario,
   type Datos,
   type DatosAsignacion,
+  type DatosCostos,
   type DatosMonitoreoManual,
   type FuenteDatos,
   type Modo,
+  type NuevoUsuario,
   type ResultadoBorrado,
 } from "./datos";
 import type { ClaveCatalogo, Cliente, ItemCatalogo, TipoUnidad } from "./catalogos";
@@ -31,8 +34,11 @@ import type {
   EstadoViaje,
   Operador,
   Proveedor,
+  RolUsuario,
   Ruta,
+  Tarifa,
   Unidad,
+  Usuario,
   Viaje,
 } from "./types";
 
@@ -54,6 +60,7 @@ type Store = {
   tiposUnidad: TipoUnidad[];
   tiposMercancia: ItemCatalogo[];
   rutas: Ruta[];
+  tarifas: Tarifa[];
 
   entrar: (email: string, password: string, mfaCode?: string) => Promise<void>;
   salir: () => Promise<void>;
@@ -61,6 +68,7 @@ type Store = {
 
   agregarViaje: (v: Omit<Viaje, "id" | "folio" | "cartaPorte">) => Promise<Viaje>;
   asignar: (id: string, datos: DatosAsignacion) => Promise<void>;
+  actualizarCostos: (id: string, datos: DatosCostos) => Promise<void>;
   actualizarMonitoreo: (id: string, datos: DatosMonitoreoManual) => Promise<void>;
   cambiarEstado: (id: string, estado: EstadoViaje) => Promise<void>;
   facturar: (id: string, factura: string, fechaFactura: string) => Promise<void>;
@@ -69,7 +77,13 @@ type Store = {
   marcarPagado: (id: string, referencia: string) => Promise<void>;
   liquidar: (id: string) => Promise<void>;
 
-  agregarCatalogo: (clave: ClaveCatalogo, item: Record<string, unknown>) => Promise<void>;
+  /** Devuelve si el alta prosperó: el backend puede rechazarla (p. ej. una
+   * tarifa duplicada), y el formulario necesita saberlo para no cerrarse
+   * como si hubiera guardado. */
+  agregarCatalogo: (
+    clave: ClaveCatalogo,
+    item: Record<string, unknown>,
+  ) => Promise<boolean>;
   actualizarCatalogo: (
     clave: ClaveCatalogo,
     id: string,
@@ -77,6 +91,18 @@ type Store = {
   ) => Promise<void>;
   eliminarCatalogo: (clave: ClaveCatalogo, id: string) => Promise<ResultadoBorrado>;
   usosDeCatalogo: (clave: ClaveCatalogo, id: string) => number;
+
+  /**
+   * Administración de usuarios. Vive fuera de `datos` porque no es catálogo
+   * de la operación y solo existe con backend: la demostración no tiene
+   * sesión que administrar.
+   */
+  listarUsuarios: () => Promise<Usuario[]>;
+  permisosPorRol: () => Promise<Record<RolUsuario, string[]>>;
+  crearUsuario: (datos: NuevoUsuario) => Promise<Usuario>;
+  actualizarUsuario: (id: string, cambios: CambiosUsuario) => Promise<Usuario>;
+  cambiarPasswordUsuario: (id: string, password: string) => Promise<void>;
+  eliminarUsuario: (id: string) => Promise<void>;
 
   unidad: (id: string) => Unidad | undefined;
   operador: (id: string) => Operador | undefined;
@@ -98,6 +124,7 @@ const VACIO: Datos = {
   tiposUnidad: [],
   tiposMercancia: [],
   rutas: [],
+  tarifas: [],
 };
 
 /** Campo del viaje que apunta a cada catálogo, para contar usos. */
@@ -111,6 +138,9 @@ const CAMPO_EN_VIAJE: Record<ClaveCatalogo, keyof Viaje> = {
   tiposUnidad: "tipoUnidadId",
   tiposMercancia: "tipoMercanciaId",
   rutas: "rutaId",
+  // El servicio copia el importe de la tarifa, no la referencia: nunca hay
+  // "usos" que impidan borrarla.
+  tarifas: "id",
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -246,6 +276,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       tiposUnidad: datos.tiposUnidad as unknown as TipoUnidad[],
       tiposMercancia: datos.tiposMercancia as unknown as ItemCatalogo[],
       rutas: datos.rutas as unknown as Ruta[],
+      tarifas: datos.tarifas as unknown as Tarifa[],
 
       entrar,
       salir,
@@ -258,6 +289,8 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       },
 
       asignar: (id, datosAsignacion) => accion(() => f.asignar(id, datosAsignacion)),
+      actualizarCostos: (id, datosCostos) =>
+        accion(() => f.actualizarCostos(id, datosCostos)),
       actualizarMonitoreo: (id, datosMonitoreo) =>
         accion(() => f.actualizarMonitoreo(id, datosMonitoreo)),
       cambiarEstado: (id, estado) => accion(() => f.cambiarEstado(id, estado)),
@@ -271,8 +304,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
         try {
           setError(null);
           setDatos(await f.crearCatalogo(clave, item));
+          return true;
         } catch (e) {
           setError(e instanceof Error ? e.message : "No se pudo crear el registro");
+          return false;
         }
       },
 
@@ -293,6 +328,13 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
 
       usosDeCatalogo: (clave, id) =>
         datos.viajes.filter((v) => v[CAMPO_EN_VIAJE[clave]] === id).length,
+
+      listarUsuarios: f.listarUsuarios,
+      permisosPorRol: f.permisosPorRol,
+      crearUsuario: f.crearUsuario,
+      actualizarUsuario: f.actualizarUsuario,
+      cambiarPasswordUsuario: f.cambiarPasswordUsuario,
+      eliminarUsuario: f.eliminarUsuario,
 
       unidad,
       operador,

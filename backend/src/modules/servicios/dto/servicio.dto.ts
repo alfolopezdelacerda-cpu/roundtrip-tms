@@ -110,12 +110,13 @@ export class CrearServicioDto {
   @IsOptional()
   @IsNumber()
   @Min(0)
-  tarifa?: number;
+  costo?: number;
 
+  /** Solo FWD: lo que cobra el proveedor, una parte del costo operativo. */
   @IsOptional()
   @IsNumber()
   @Min(0)
-  costo?: number;
+  costoProveedor?: number;
 
   @IsOptional()
   @IsInt()
@@ -210,6 +211,37 @@ export class FacturarDto {
   @IsOptional()
   @IsDateString()
   fechaFactura?: string;
+}
+
+/**
+ * Desglose del costo operativo (Finanzas › Rentabilidad por viaje). El total
+ * no se manda: se recalcula sumando estas partes.
+ */
+export class ActualizarCostosDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costoProveedor?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costoCombustible?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costoCasetas?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costoOperador?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  costoOtros?: number;
 }
 
 export class PagarDto {

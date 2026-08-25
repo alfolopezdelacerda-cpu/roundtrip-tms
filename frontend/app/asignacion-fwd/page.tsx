@@ -134,8 +134,9 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
   const v = viajes.find((x) => x.id === viajeId);
 
   const [proveedorId, setProveedorId] = useState(v?.proveedorId ?? "");
-  const [tarifa, setTarifa] = useState(v?.tarifa ? String(v.tarifa) : "");
-  const [costo, setCosto] = useState(v?.costo ? String(v.costo) : "");
+  const [costo, setCosto] = useState(
+    v?.costos.proveedor ? String(v.costos.proveedor) : "",
+  );
   const [guardando, setGuardando] = useState(false);
   const [programando, setProgramando] = useState(false);
 
@@ -149,8 +150,7 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
     try {
       await asignar(viajeId, {
         proveedorId,
-        tarifa: Number(tarifa) || 0,
-        costo: Number(costo) || 0,
+        costoProveedor: Number(costo) || 0,
       });
     } finally {
       setGuardando(false);
@@ -162,8 +162,7 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
     try {
       await asignar(viajeId, {
         proveedorId,
-        tarifa: Number(tarifa) || 0,
-        costo: Number(costo) || 0,
+        costoProveedor: Number(costo) || 0,
       });
       await cambiarEstado(viajeId, "programado");
     } finally {
@@ -203,19 +202,7 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
           </select>
         </div>
 
-        <div>
-          <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
-            Tarifa al cliente (MXN)
-          </label>
-          <input
-            type="number"
-            min={0}
-            className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
-            value={tarifa}
-            onChange={(e) => setTarifa(e.target.value)}
-          />
-        </div>
-        <div>
+        <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
             Costo del proveedor (MXN)
           </label>

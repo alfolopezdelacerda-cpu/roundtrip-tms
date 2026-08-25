@@ -36,8 +36,7 @@ export default function Rutas() {
         <Card className="mb-4 p-4">
           <FormularioRuta
             onGuardar={async (datos) => {
-              await agregarCatalogo("rutas", datos);
-              setNuevo(false);
+              if (await agregarCatalogo("rutas", datos)) setNuevo(false);
             }}
           />
         </Card>

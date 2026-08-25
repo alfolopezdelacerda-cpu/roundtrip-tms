@@ -33,7 +33,8 @@ export type ClaveCatalogo =
   | "tiposNegocio"
   | "tiposUnidad"
   | "tiposMercancia"
-  | "rutas";
+  | "rutas"
+  | "tarifas";
 
 export const clientesSeed: Cliente[] = [
   { id: "c1", nombre: "Grupo Ferretero del Norte", rfc: "GFN050312AB1", diasCredito: 30, activo: true },

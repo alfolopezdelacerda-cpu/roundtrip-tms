@@ -5,15 +5,13 @@ import { useParams } from "next/navigation";
 import type { ReactNode } from "react";
 import { useStore } from "@/lib/store";
 import {
-  ESTADOS_VIAJE,
   MODALIDAD_LABEL,
   margen,
   rutaTexto,
   vencimientoCobro,
-  type EstadoViaje,
 } from "@/lib/types";
 import { fecha, fechaHora, km, mxn } from "@/lib/format";
-import { Card, PageTitle, Pill } from "@/components/ui";
+import { Card, PageTitle } from "@/components/ui";
 import {
   AsignacionBadge,
   Barra,
@@ -33,7 +31,6 @@ export default function DetalleViaje() {
     ejecutor,
     nombreDe,
     esFull,
-    cambiarEstado,
   } = useStore();
   const viaje = viajes.find((v) => v.id === params.id);
 
@@ -188,31 +185,14 @@ export default function DetalleViaje() {
           </Card>
 
           <Card className="p-5">
-            <h2 className="mb-3 text-sm font-semibold">Actualizar estado</h2>
-            <div className="flex flex-col gap-2">
-              {ESTADOS_VIAJE.map((e) => (
-                <button
-                  key={e.value}
-                  onClick={() => cambiarEstado(viaje.id, e.value as EstadoViaje)}
-                  className={`rounded-md px-3 py-2 text-left text-sm ring-1 ring-inset transition-colors ${
-                    viaje.estado === e.value
-                      ? "bg-ink text-white ring-transparent"
-                      : "bg-white ring-[#DEE3DD] hover:bg-black/[0.03]"
-                  }`}
-                >
-                  {e.label}
-                </button>
-              ))}
-            </div>
-            <p className="mt-4 text-xs text-muted">
-              Los cambios se guardan en este navegador.
+            <h2 className="mb-2 text-sm font-semibold">Seguimiento</h2>
+            <p className="text-sm text-muted">
+              El estatus y los hitos del tramo se capturan en{" "}
+              <Link href="/seguridad/monitoreo" className="text-amber hover:underline">
+                Seguridad › Monitoreo
+              </Link>
+              , que es donde vive el seguimiento.
             </p>
-            {viaje.asignacion === "TDC" && u ? (
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Pill>{u.tipo}</Pill>
-                <Pill>{u.capacidadTon} t</Pill>
-              </div>
-            ) : null}
           </Card>
         </div>
       </div>

@@ -186,9 +186,31 @@ export class Servicio {
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   tarifa: string;
 
-  /** Costo de ejecución: al proveedor en FWD, operativo en TDC. */
+  /**
+   * Costo total de ejecución. NO se captura directamente: es la suma del
+   * desglose de abajo, recalculada en cada cambio. CXP y el margen leen de
+   * aquí, así que sigue siendo el único número que el resto del sistema usa.
+   */
   @Column({ type: 'decimal', precision: 15, scale: 2, default: 0 })
   costo: string;
+
+  // ---- Desglose del costo operativo (Finanzas › Rentabilidad por viaje) ----
+
+  /** Solo FWD: lo que cobra el proveedor. Se fija en Asignación FWD. */
+  @Column({ name: 'costo_proveedor', type: 'decimal', precision: 15, scale: 2, default: 0 })
+  costoProveedor: string;
+
+  @Column({ name: 'costo_combustible', type: 'decimal', precision: 15, scale: 2, default: 0 })
+  costoCombustible: string;
+
+  @Column({ name: 'costo_casetas', type: 'decimal', precision: 15, scale: 2, default: 0 })
+  costoCasetas: string;
+
+  @Column({ name: 'costo_operador', type: 'decimal', precision: 15, scale: 2, default: 0 })
+  costoOperador: string;
+
+  @Column({ name: 'costo_otros', type: 'decimal', precision: 15, scale: 2, default: 0 })
+  costoOtros: string;
 
   // ---- Cobro ----
   @Index('idx_servicios_cobro')

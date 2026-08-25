@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useStore } from "@/lib/store";
 import { Kpi, PageTitle } from "@/components/ui";
 import {
@@ -12,6 +13,7 @@ import {
   type Columna,
 } from "@/components/servicios";
 import { mxn } from "@/lib/format";
+import type { Asignacion } from "@/lib/types";
 
 /**
  * Cuentas por pagar: lo que ADL debe por la ejecución de los servicios.
@@ -19,13 +21,21 @@ import { mxn } from "@/lib/format";
  * En FWD el acreedor es el proveedor externo; en TDC es el costo operativo
  * propio (diésel, casetas, liquidación del operador). Se listan juntos
  * porque tesorería paga de la misma bolsa.
+ *
+ * Muestra todos los servicios vivos, incluidos los que aún no tienen costo
+ * capturado: verlos en cero es justamente lo que recuerda que falta
+ * capturarlos en Finanzas › Rentabilidad por viaje.
  */
 export default function CXP() {
   const { viajes, proveedor, autorizarPago, marcarPagado } = useStore();
+  const [filtro, setFiltro] = useState<Asignacion | "todos">("todos");
 
   const porPagar = viajes
-    .filter((v) => v.estado === "completado" && v.pago.estado !== "pagado" && v.costo > 0)
+    .filter((v) => v.estado !== "cancelado" && v.pago.estado !== "pagado")
+    .filter((v) => (filtro === "todos" ? true : v.asignacion === filtro))
     .sort((a, b) => b.costo - a.costo);
+
+  const sinCosto = porPagar.filter((v) => v.costo === 0).length;
 
   const porAutorizar = porPagar.filter((v) => v.pago.estado === "pendiente");
   const autorizados = porPagar.filter((v) => v.pago.estado === "autorizado");
@@ -74,12 +84,18 @@ export default function CXP() {
     alineacion: "der",
     celda: (v) =>
       v.pago.estado === "pendiente" ? (
-        <button
-          onClick={() => autorizarPago(v.id)}
-          className="rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
-        >
-          Autorizar
-        </button>
+        // Autorizar un pago de cero no significa nada: primero hay que
+        // capturar el costo operativo.
+        v.costo === 0 ? (
+          <span className="text-xs text-muted">Sin costo</span>
+        ) : (
+          <button
+            onClick={() => autorizarPago(v.id)}
+            className="rounded-md bg-ink px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
+          >
+            Autorizar
+          </button>
+        )
       ) : (
         <button
           onClick={() => marcarPagado(v.id, `SPEI-${88000 + Math.floor(Math.random() * 900)}`)}
@@ -94,7 +110,7 @@ export default function CXP() {
     <>
       <PageTitle
         title="CXP"
-        subtitle="Cuentas por pagar: proveedores externos y costo operativo propio."
+        subtitle="Cuentas por pagar de todos los servicios: proveedores externos (FWD) y costo operativo propio (TDC)."
       />
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -110,15 +126,29 @@ export default function CXP() {
           hint="Listo para pago"
         />
         <Kpi
-          label="A proveedores"
-          value={mxn(
-            porPagar.filter((v) => v.asignacion === "FWD").reduce((s, v) => s + v.costo, 0),
-          )}
-          hint="Solo FWD"
+          label="Sin costo capturado"
+          value={String(sinCosto)}
+          hint={sinCosto ? "captúralo en Rentabilidad" : "todos capturados"}
         />
       </div>
 
-      <div className="mt-6">
+      <div className="mt-6 mb-4 flex flex-wrap gap-2">
+        {(["todos", "TDC", "FWD"] as const).map((op) => (
+          <button
+            key={op}
+            onClick={() => setFiltro(op)}
+            className={`rounded-md px-3 py-1.5 text-sm ring-1 ring-inset transition-colors ${
+              filtro === op
+                ? "bg-ink text-white ring-transparent"
+                : "bg-white ring-[#DEE3DD] hover:bg-black/[0.03]"
+            }`}
+          >
+            {op === "todos" ? "Todos" : op}
+          </button>
+        ))}
+      </div>
+
+      <div>
         <TablaServicios
           viajes={porPagar}
           vacio="No hay cuentas por pagar."
