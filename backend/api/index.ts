@@ -15,6 +15,8 @@ import { configurarApp } from '../src/bootstrap';
  * El módulo Nest se arma una sola vez por instancia tibia (variable de
  * módulo, sobrevive entre invocaciones del mismo contenedor) para no pagar
  * el costo de bootstrap en cada request.
+ *
+ * Vercel auto-deploys on push to main branch via GitHub webhook.
  */
 let servidorExpress: express.Express | null = null;
 let inicializando: Promise<express.Express> | null = null;
