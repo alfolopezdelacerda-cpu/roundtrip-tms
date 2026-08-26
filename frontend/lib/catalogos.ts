@@ -34,7 +34,8 @@ export type ClaveCatalogo =
   | "tiposUnidad"
   | "tiposMercancia"
   | "rutas"
-  | "tarifas";
+  | "tarifas"
+  | "tiposIncidencia";
 
 export const clientesSeed: Cliente[] = [
   { id: "c1", nombre: "Grupo Ferretero del Norte", rfc: "GFN050312AB1", diasCredito: 30, activo: true },
@@ -73,6 +74,13 @@ export const tiposUnidadSeed: TipoUnidad[] = [
   { id: "tu5", nombre: "Chasis doble 2x20'", full: true, activo: true },
   { id: "tu6", nombre: "Rabón", full: false, activo: true },
   { id: "tu7", nombre: "Camioneta 3.5", full: false, activo: true },
+];
+
+export const tiposIncidenciaSeed: ItemCatalogo[] = [
+  { id: "ti1", nombre: "Desvío de ruta", activo: true },
+  { id: "ti2", nombre: "Estadía no autorizada", activo: true },
+  { id: "ti3", nombre: "Retraso injustificado", activo: true },
+  { id: "ti4", nombre: "Falta de reporte", activo: true },
 ];
 
 export const tiposMercanciaSeed: ItemCatalogo[] = [

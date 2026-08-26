@@ -151,7 +151,15 @@ function servicio(
     tarifa: 0,
     cobro: { estado: "pendiente", factura: null, fechaFactura: null, diasCredito: 30 },
     pago: { estado: "pendiente", referencia: null, fechaPago: null },
-    liquidacion: { estado: "pendiente", fecha: null },
+    liquidacion: {
+      estado: "pendiente",
+      fecha: null,
+      combustible: 0,
+      casetas: 0,
+      gastosExtra: 0,
+      gastosExtraDetalle: null,
+      evidencias: false,
+    },
     ...v,
     costos,
     costo: Object.values(costos).reduce((suma, parte) => suma + parte, 0),
@@ -326,7 +334,7 @@ export const viajesSeed: Viaje[] = [
     costos: { proveedor: 0, combustible: 4600, casetas: 1900, operador: 1100, otros: 300 },
     cobro: { estado: "cobrado", factura: "A-10430", fechaFactura: "2026-07-28", diasCredito: 30 },
     pago: { estado: "pagado", referencia: "SPEI-88213", fechaPago: "2026-08-11" },
-    liquidacion: { estado: "liquidado", fecha: "2026-08-12" },
+    liquidacion: { estado: "liquidado", fecha: "2026-08-12", combustible: 0, casetas: 0, gastosExtra: 0, gastosExtraDetalle: null, evidencias: true },
     monitoreo: {
       avance: 100,
       ubicacion: "Patio Querétaro",
@@ -486,7 +494,7 @@ export const viajesSeed: Viaje[] = [
     // Facturado hace tiempo y aún sin cobrar: cae en vencido.
     cobro: { estado: "vencido", factura: "A-10388", fechaFactura: "2026-06-26", diasCredito: 30 },
     pago: { estado: "pagado", referencia: "SPEI-87004", fechaPago: "2026-07-20" },
-    liquidacion: { estado: "liquidado", fecha: "2026-07-01" },
+    liquidacion: { estado: "liquidado", fecha: "2026-07-01", combustible: 0, casetas: 0, gastosExtra: 0, gastosExtraDetalle: null, evidencias: true },
     monitoreo: {
       avance: 100,
       ubicacion: "Querétaro, Querétaro",

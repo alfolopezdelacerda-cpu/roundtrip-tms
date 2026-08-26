@@ -111,6 +111,11 @@ export type Viaje = {
   liquidacion: {
     estado: EstadoLiquidacion;
     fecha: string | null;
+    combustible: number;
+    casetas: number;
+    gastosExtra: number;
+    gastosExtraDetalle: string | null;
+    evidencias: boolean;
   };
 
   monitoreo: {

@@ -25,7 +25,6 @@ export const AREAS_MENU: AreaMenu[] = [
       { titulo: "CRM", href: "/atc/crm" },
       { titulo: "Solicitudes", href: "/viajes/nuevo" },
       { titulo: "Clasificación", href: "/atc/clasificacion" },
-      { titulo: "Tarifario", href: "/atc/tarifario" },
     ],
   },
   {

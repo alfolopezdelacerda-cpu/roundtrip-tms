@@ -159,6 +159,13 @@ const CATALOGOS: DefinicionCatalogo[] = [
     descripcion: "Clasificación de la carga.",
     campos: [{ clave: "nombre", titulo: "Nombre", tipo: "texto" }],
   },
+  {
+    clave: "tiposIncidencia",
+    titulo: "Tipos de incidencia",
+    descripcion:
+      "Catálogo que usa Seguridad › Monitoreo al reportar una incidencia a un operador.",
+    campos: [{ clave: "nombre", titulo: "Nombre", tipo: "texto" }],
+  },
 ];
 
 /** Secciones del panel: los catálogos, más usuarios y permisos. */

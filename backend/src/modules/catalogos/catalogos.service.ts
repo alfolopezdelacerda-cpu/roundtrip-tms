@@ -13,6 +13,7 @@ import {
   Puerto,
   Ruta,
   Tarifa,
+  TipoIncidencia,
   TipoMercancia,
   TipoNegocio,
   TipoUnidad,
@@ -34,6 +35,7 @@ export const TIPOS_CATALOGO = [
   'tipos-mercancia',
   'rutas',
   'tarifas',
+  'tipos-incidencia',
 ] as const;
 
 export type TipoCatalogo = (typeof TIPOS_CATALOGO)[number];
@@ -52,6 +54,8 @@ export class CatalogosService {
     @InjectRepository(Conductor) private readonly conductores: Repository<Conductor>,
     @InjectRepository(Ruta) private readonly rutas: Repository<Ruta>,
     @InjectRepository(Tarifa) private readonly tarifas: Repository<Tarifa>,
+    @InjectRepository(TipoIncidencia)
+    private readonly tiposIncidencia: Repository<TipoIncidencia>,
     @InjectRepository(Servicio) private readonly servicios: Repository<Servicio>,
     private readonly encryption: EncryptionService,
   ) {}
@@ -68,6 +72,7 @@ export class CatalogosService {
       'tipos-mercancia': this.tiposMercancia,
       rutas: this.rutas,
       tarifas: this.tarifas,
+      'tipos-incidencia': this.tiposIncidencia,
     };
     const repo = mapa[tipo];
     if (!repo) throw new BadRequestException(`Catálogo desconocido: ${tipo}`);
@@ -90,6 +95,7 @@ export class CatalogosService {
       'tipos-mercancia': 'tipo_mercancia_id',
       rutas: 'ruta_id',
       tarifas: '',
+      'tipos-incidencia': '',
     }[tipo];
   }
 

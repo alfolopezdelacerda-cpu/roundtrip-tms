@@ -196,7 +196,7 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
             <option value="">Seleccionar proveedor</option>
             {activos.map((p) => (
               <option key={p.id} value={p.id}>
-                {p.nombre} — {p.tipo.replace("_", " ")} ({p.diasPago} días)
+                {p.nombre} — {p.tipo.replace("_", " ")}
               </option>
             ))}
           </select>
@@ -204,7 +204,7 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
 
         <div className="sm:col-span-2">
           <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
-            Costo del proveedor (MXN)
+            Costo del proveedor (MXN) <span className="normal-case text-muted/70">— opcional</span>
           </label>
           <input
             type="number"
@@ -212,13 +212,16 @@ function TarjetaAsignacion({ viajeId }: { viajeId: string }) {
             className="w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber"
             value={costo}
             onChange={(e) => setCosto(e.target.value)}
+            placeholder="Se puede capturar después en Rentabilidad por Viaje"
           />
         </div>
       </div>
 
       <p className="mt-2 text-xs text-muted">
-        Operador, medio de comunicación, unidad y placa se capturan a mano cuando el
-        servicio caiga en Monitoreo.
+        Solo el proveedor es obligatorio para programar el servicio; el costo se
+        puede dejar en blanco y capturarse después en Finanzas › Rentabilidad por
+        Viaje. Operador, medio de comunicación, unidad y placa se capturan a mano
+        cuando el servicio caiga en Monitoreo.
       </p>
 
       <div className="mt-4 flex gap-2">

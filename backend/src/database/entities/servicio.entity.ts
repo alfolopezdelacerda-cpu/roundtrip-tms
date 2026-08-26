@@ -249,6 +249,21 @@ export class Servicio {
   @Column({ name: 'liquidacion_fecha', type: 'date', nullable: true })
   liquidacionFecha: string | null;
 
+  @Column({ name: 'liquidacion_combustible', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  liquidacionCombustible: string | null;
+
+  @Column({ name: 'liquidacion_casetas', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  liquidacionCasetas: string | null;
+
+  @Column({ name: 'liquidacion_gastos_extra', type: 'numeric', precision: 12, scale: 2, nullable: true })
+  liquidacionGastosExtra: string | null;
+
+  @Column({ name: 'liquidacion_gastos_extra_detalle', type: 'varchar', length: 500, nullable: true })
+  liquidacionGastosExtraDetalle: string | null;
+
+  @Column({ name: 'liquidacion_evidencias', type: 'boolean', default: false })
+  liquidacionEvidencias: boolean;
+
   // ---- Monitoreo ----
   @Column({ name: 'monitoreo_avance', type: 'int', default: 0 })
   monitoreoAvance: number;

@@ -20,6 +20,7 @@ import {
   CrearServicioDto,
   FacturarDto,
   FiltroServiciosDto,
+  LiquidarDto,
   PagarDto,
 } from './dto/servicio.dto';
 import { CurrentUser, Roles } from '../../common/decorators';
@@ -134,8 +135,8 @@ export class ServiciosController {
   @Roles('admin', 'manager', 'accountant')
   @UseGuards(RolesGuard)
   @HttpCode(HttpStatus.OK)
-  liquidar(@Param('id', ParseUUIDPipe) id: string) {
-    return this.servicios.liquidar(id);
+  liquidar(@Param('id', ParseUUIDPipe) id: string, @Body() dto: LiquidarDto) {
+    return this.servicios.liquidar(id, dto);
   }
 
   /** Recalcula vencimientos de CXC. Pensado para una tarea diaria. */

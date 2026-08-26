@@ -23,9 +23,12 @@ import {
   type Datos,
   type DatosAsignacion,
   type DatosCostos,
+  type DatosLiquidacion,
   type DatosMonitoreoManual,
   type FuenteDatos,
+  type IncidenciaViaje,
   type Modo,
+  type NuevaIncidencia,
   type NuevoUsuario,
   type ResultadoBorrado,
 } from "./datos";
@@ -61,6 +64,7 @@ type Store = {
   tiposMercancia: ItemCatalogo[];
   rutas: Ruta[];
   tarifas: Tarifa[];
+  tiposIncidencia: ItemCatalogo[];
 
   entrar: (email: string, password: string, mfaCode?: string) => Promise<void>;
   salir: () => Promise<void>;
@@ -75,7 +79,13 @@ type Store = {
   marcarCobrado: (id: string) => Promise<void>;
   autorizarPago: (id: string) => Promise<void>;
   marcarPagado: (id: string, referencia: string) => Promise<void>;
-  liquidar: (id: string) => Promise<void>;
+  liquidar: (id: string, datos: DatosLiquidacion) => Promise<void>;
+
+  listarIncidencias: (filtro?: {
+    conductorId?: string;
+    servicioId?: string;
+  }) => Promise<IncidenciaViaje[]>;
+  crearIncidencia: (datos: NuevaIncidencia) => Promise<IncidenciaViaje>;
 
   /** Devuelve si el alta prosperó: el backend puede rechazarla (p. ej. una
    * tarifa duplicada), y el formulario necesita saberlo para no cerrarse
@@ -125,6 +135,7 @@ const VACIO: Datos = {
   tiposMercancia: [],
   rutas: [],
   tarifas: [],
+  tiposIncidencia: [],
 };
 
 /** Campo del viaje que apunta a cada catálogo, para contar usos. */
@@ -141,6 +152,9 @@ const CAMPO_EN_VIAJE: Record<ClaveCatalogo, keyof Viaje> = {
   // El servicio copia el importe de la tarifa, no la referencia: nunca hay
   // "usos" que impidan borrarla.
   tarifas: "id",
+  // Las incidencias no viven en el servicio: nunca hay "usos" que impidan
+  // borrar un tipo de incidencia.
+  tiposIncidencia: "id",
 };
 
 const StoreContext = createContext<Store | null>(null);
@@ -277,6 +291,7 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       tiposMercancia: datos.tiposMercancia as unknown as ItemCatalogo[],
       rutas: datos.rutas as unknown as Ruta[],
       tarifas: datos.tarifas as unknown as Tarifa[],
+      tiposIncidencia: datos.tiposIncidencia as unknown as ItemCatalogo[],
 
       entrar,
       salir,
@@ -298,7 +313,10 @@ export function StoreProvider({ children }: { children: React.ReactNode }) {
       marcarCobrado: (id) => accion(() => f.marcarCobrado(id)),
       autorizarPago: (id) => accion(() => f.autorizarPago(id)),
       marcarPagado: (id, referencia) => accion(() => f.marcarPagado(id, referencia)),
-      liquidar: (id) => accion(() => f.liquidar(id)),
+      liquidar: (id, datos) => accion(() => f.liquidar(id, datos)),
+
+      listarIncidencias: (filtro) => f.listarIncidencias(filtro),
+      crearIncidencia: (datos) => f.crearIncidencia(datos),
 
       agregarCatalogo: async (clave, item) => {
         try {

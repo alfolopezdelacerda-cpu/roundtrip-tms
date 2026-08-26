@@ -6,6 +6,7 @@ import { TokenBlacklist } from '../modules/auth/entities/token-blacklist.entity'
 import { ENTIDADES_TRANSPORTES } from './entities/transportes.entities';
 import { ENTIDADES_CATALOGOS } from './entities/catalogos.entities';
 import { Servicio } from './entities/servicio.entity';
+import { Incidencia } from './entities/incidencia.entity';
 import { CartaPorte } from '../modules/sat/entities/carta-porte.entity';
 
 /**
@@ -27,6 +28,7 @@ export const transportesDataSource = new DataSource({
     ...ENTIDADES_TRANSPORTES,
     ...ENTIDADES_CATALOGOS,
     Servicio,
+    Incidencia,
     CartaPorte,
   ],
   migrations: [__dirname + '/migrations/transportes/*.{ts,js}'],

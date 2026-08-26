@@ -251,6 +251,38 @@ export class PagarDto {
 }
 
 /**
+ * Cierre operativo de la liquidación: lo que la unidad gastó en el tramo y
+ * si ya se recibieron las evidencias físicas. Los gastos extra piden su
+ * detalle porque, a diferencia de combustible y casetas, no son un concepto
+ * fijo — sin explicación no se sabe qué se está pagando.
+ */
+export class LiquidarDto {
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  combustible?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  casetas?: number;
+
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  gastosExtra?: number;
+
+  @IsOptional()
+  @IsString()
+  @Length(0, 500)
+  gastosExtraDetalle?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  evidencias?: boolean;
+}
+
+/**
  * Campos que se capturan a mano en el tablero de Monitoreo. Operador, medio
  * de comunicación, unidad y placa no vienen de catálogo en FWD porque son
  * del proveedor; en TDC ya llegan del catálogo vía la asignación y no se

@@ -16,7 +16,7 @@ import {
   type Columna,
 } from "@/components/servicios";
 import { fecha, fechaHora, mxn } from "@/lib/format";
-import { esLiquidable, margen } from "@/lib/types";
+import { esLiquidable, margen, type Viaje } from "@/lib/types";
 
 /**
  * Servicios finalizados listos para liquidar.
@@ -29,6 +29,7 @@ import { esLiquidable, margen } from "@/lib/types";
 export default function Liquidacion() {
   const { viajes, ejecutor, liquidar } = useStore();
   const [verLiquidados, setVerLiquidados] = useState(false);
+  const [modalViaje, setModalViaje] = useState<Viaje | null>(null);
 
   const finalizados = viajes
     .filter((v) => v.estado === "completado")
@@ -98,7 +99,7 @@ export default function Liquidacion() {
         </span>
       ) : (
         <button
-          onClick={() => liquidar(v.id)}
+          onClick={() => setModalViaje(v)}
           className="rounded-md bg-amber px-2.5 py-1 text-xs font-medium text-white hover:opacity-90"
           title={
             v.cobro.estado !== "cobrado"
@@ -167,6 +168,161 @@ export default function Liquidacion() {
           ]}
         />
       </div>
+
+      {modalViaje ? (
+        <ModalLiquidar
+          viaje={modalViaje}
+          onCerrar={() => setModalViaje(null)}
+          onGuardar={async (datos) => {
+            await liquidar(modalViaje.id, datos);
+            setModalViaje(null);
+          }}
+        />
+      ) : null}
     </>
+  );
+}
+
+function ModalLiquidar({
+  viaje,
+  onCerrar,
+  onGuardar,
+}: {
+  viaje: Viaje;
+  onCerrar: () => void;
+  onGuardar: (datos: {
+    combustible: number;
+    casetas: number;
+    gastosExtra: number;
+    gastosExtraDetalle: string;
+    evidencias: boolean;
+  }) => Promise<void>;
+}) {
+  const [combustible, setCombustible] = useState("");
+  const [casetas, setCasetas] = useState("");
+  const [gastosExtra, setGastosExtra] = useState("");
+  const [gastosExtraDetalle, setGastosExtraDetalle] = useState("");
+  const [evidencias, setEvidencias] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [guardando, setGuardando] = useState(false);
+
+  const hayGastosExtra = Number(gastosExtra) > 0;
+
+  async function guardar() {
+    if (hayGastosExtra && !gastosExtraDetalle.trim()) {
+      setError("Especifica de qué se tratan los gastos extra.");
+      return;
+    }
+    setGuardando(true);
+    setError(null);
+    try {
+      await onGuardar({
+        combustible: Number(combustible) || 0,
+        casetas: Number(casetas) || 0,
+        gastosExtra: Number(gastosExtra) || 0,
+        gastosExtraDetalle: gastosExtraDetalle.trim(),
+        evidencias,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "No se pudo liquidar el servicio");
+    } finally {
+      setGuardando(false);
+    }
+  }
+
+  const campo =
+    "w-full rounded-md border border-line bg-white px-3 py-2 text-sm outline-none focus:border-amber";
+  const etiqueta = "mb-1 block text-xs font-medium uppercase tracking-wide text-muted";
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-lg">
+        <h2 className="text-sm font-semibold">Liquidar servicio {viaje.folio}</h2>
+        <p className="mt-1 text-xs text-muted">{viaje.origen} → {viaje.destino}</p>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <label className={etiqueta}>Combustible que cargó la unidad (MXN)</label>
+            <input
+              type="number"
+              min={0}
+              className={campo}
+              value={combustible}
+              onChange={(e) => setCombustible(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className={etiqueta}>Casetas que cruzó en el servicio (MXN)</label>
+            <input
+              type="number"
+              min={0}
+              className={campo}
+              value={casetas}
+              onChange={(e) => setCasetas(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className={etiqueta}>Gastos extras (MXN)</label>
+            <input
+              type="number"
+              min={0}
+              className={campo}
+              value={gastosExtra}
+              onChange={(e) => setGastosExtra(e.target.value)}
+            />
+          </div>
+
+          {hayGastosExtra ? (
+            <div>
+              <label className={etiqueta}>Especificar gastos extras *</label>
+              <textarea
+                rows={2}
+                className={campo}
+                value={gastosExtraDetalle}
+                onChange={(e) => setGastosExtraDetalle(e.target.value)}
+                placeholder="¿De qué se trataron los gastos extra?"
+              />
+            </div>
+          ) : null}
+
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={evidencias}
+              onChange={(e) => setEvidencias(e.target.checked)}
+              className="h-4 w-4 accent-[#C97A0F]"
+            />
+            Entrega de evidencias físicas del servicio
+          </label>
+        </div>
+
+        {error ? (
+          <p className="mt-3 rounded-md bg-rose-50 px-3 py-2 text-sm text-rose-700 ring-1 ring-inset ring-rose-200">
+            {error}
+          </p>
+        ) : null}
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCerrar}
+            disabled={guardando}
+            className="rounded-md border border-line px-3 py-2 text-sm font-medium hover:bg-black/[0.03]"
+          >
+            Cancelar
+          </button>
+          <button
+            type="button"
+            onClick={guardar}
+            disabled={guardando}
+            className="rounded-md bg-amber px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-60"
+          >
+            {guardando ? "Liquidando…" : "Liquidar"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

@@ -28,6 +28,7 @@ import type {
   CambiarEstadoDto,
   CrearServicioDto,
   FiltroServiciosDto,
+  LiquidarDto,
 } from './dto/servicio.dto';
 import { User } from '../auth/entities/user.entity';
 import logger from '../../common/logger';
@@ -514,7 +515,7 @@ export class ServiciosService {
    * área, no una regla del sistema. Sí queda registrado en la bitácora cuando
    * se liquida sin cobro, que es lo que después se audita.
    */
-  async liquidar(id: string) {
+  async liquidar(id: string, dto: LiquidarDto) {
     const servicio = await this.exigir(id);
     if (servicio.estado !== 'completado') {
       throw new ConflictException('Solo se liquida un servicio completado');
@@ -522,15 +523,26 @@ export class ServiciosService {
     if (servicio.liquidacionEstado === 'liquidado') {
       throw new ConflictException('El servicio ya está liquidado');
     }
+    if (dto.gastosExtra && !dto.gastosExtraDetalle?.trim()) {
+      throw new BadRequestException(
+        'Si hay gastos extra, hay que especificar de qué se trata',
+      );
+    }
 
     servicio.liquidacionEstado = 'liquidado';
     servicio.liquidacionFecha = new Date().toISOString().slice(0, 10);
+    servicio.liquidacionCombustible = String(dto.combustible ?? 0);
+    servicio.liquidacionCasetas = String(dto.casetas ?? 0);
+    servicio.liquidacionGastosExtra = String(dto.gastosExtra ?? 0);
+    servicio.liquidacionGastosExtraDetalle = dto.gastosExtraDetalle?.trim() || null;
+    servicio.liquidacionEvidencias = dto.evidencias ?? false;
     await this.servicios.save(servicio);
 
     logger.audit({
       tipo: 'servicio_liquidado',
       servicioId: id,
       sinCobrar: servicio.cobroEstado !== 'cobrado',
+      sinEvidencias: !servicio.liquidacionEvidencias,
     });
     return this.obtener(id);
   }
@@ -699,7 +711,15 @@ export class ServiciosService {
         referencia: s.pagoReferencia,
         fechaPago: s.pagoFecha,
       },
-      liquidacion: { estado: s.liquidacionEstado, fecha: s.liquidacionFecha },
+      liquidacion: {
+        estado: s.liquidacionEstado,
+        fecha: s.liquidacionFecha,
+        combustible: s.liquidacionCombustible ? Number(s.liquidacionCombustible) : 0,
+        casetas: s.liquidacionCasetas ? Number(s.liquidacionCasetas) : 0,
+        gastosExtra: s.liquidacionGastosExtra ? Number(s.liquidacionGastosExtra) : 0,
+        gastosExtraDetalle: s.liquidacionGastosExtraDetalle,
+        evidencias: s.liquidacionEvidencias,
+      },
       monitoreo: {
         avance: s.monitoreoAvance,
         ubicacion: s.monitoreoUbicacion,

@@ -169,6 +169,14 @@ export class Tarifa {
   updatedAt: Date;
 }
 
+/**
+ * Tipos de incidencia (desvío de ruta, estadía no autorizada, etc.) que el
+ * administrador da de alta para que Seguridad las use al reportar una
+ * incidencia contra un operador desde Monitoreo.
+ */
+@Entity('tipos_incidencia')
+export class TipoIncidencia extends Base {}
+
 export const ENTIDADES_CATALOGOS = [
   Cliente,
   Proveedor,
@@ -178,4 +186,5 @@ export const ENTIDADES_CATALOGOS = [
   TipoMercancia,
   Ruta,
   Tarifa,
+  TipoIncidencia,
 ];

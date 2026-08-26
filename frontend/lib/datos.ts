@@ -2,6 +2,7 @@ import { hayApi, peticion } from "./api";
 import {
   clientesSeed,
   puertosSeed,
+  tiposIncidenciaSeed,
   tiposMercanciaSeed,
   tiposNegocioSeed,
   tiposUnidadSeed,
@@ -46,6 +47,7 @@ export type Datos = {
   tiposMercancia: RegistroCatalogo[];
   rutas: RegistroCatalogo[];
   tarifas: RegistroCatalogo[];
+  tiposIncidencia: RegistroCatalogo[];
 };
 
 export type RegistroCatalogo = {
@@ -77,6 +79,37 @@ export type DatosCostos = {
   costoCasetas?: number;
   costoOperador?: number;
   costoOtros?: number;
+};
+
+/** Incidencia reportada a un operador desde Monitoreo. */
+export type IncidenciaViaje = {
+  id: string;
+  conductorId: string | null;
+  operador: string;
+  tipoId: string;
+  tipo: string;
+  servicioId: string | null;
+  folio: string | null;
+  descripcion: string | null;
+  creadoPor: string | null;
+  createdAt: string;
+};
+
+export type NuevaIncidencia = {
+  conductorId?: string;
+  operadorNombre?: string;
+  tipoId: string;
+  servicioId?: string;
+  descripcion?: string;
+};
+
+/** Cierre operativo de la liquidación: gastos de la unidad en el tramo. */
+export type DatosLiquidacion = {
+  combustible?: number;
+  casetas?: number;
+  gastosExtra?: number;
+  gastosExtraDetalle?: string;
+  evidencias?: boolean;
 };
 
 /** Captura manual en el tablero de Monitoreo. */
@@ -122,7 +155,7 @@ export type FuenteDatos = {
   marcarCobrado: (id: string) => Promise<Viaje>;
   autorizarPago: (id: string) => Promise<Viaje>;
   marcarPagado: (id: string, referencia: string) => Promise<Viaje>;
-  liquidar: (id: string) => Promise<Viaje>;
+  liquidar: (id: string, datos: DatosLiquidacion) => Promise<Viaje>;
   crearCatalogo: (clave: ClaveCatalogo, item: Record<string, unknown>) => Promise<Datos>;
   actualizarCatalogo: (
     clave: ClaveCatalogo,
@@ -130,6 +163,13 @@ export type FuenteDatos = {
     cambios: Record<string, unknown>,
   ) => Promise<Datos>;
   eliminarCatalogo: (clave: ClaveCatalogo, id: string) => Promise<ResultadoBorrado>;
+
+  // --- Incidencias (Seguridad) ---
+  listarIncidencias: (filtro?: {
+    conductorId?: string;
+    servicioId?: string;
+  }) => Promise<IncidenciaViaje[]>;
+  crearIncidencia: (datos: NuevaIncidencia) => Promise<IncidenciaViaje>;
 
   // --- Administración de usuarios (solo modo API: la demo no tiene sesión) ---
   listarUsuarios: () => Promise<Usuario[]>;
@@ -165,6 +205,7 @@ const RUTA_CATALOGO: Record<ClaveCatalogo, string> = {
   tiposMercancia: "tipos-mercancia",
   rutas: "rutas",
   tarifas: "tarifas",
+  tiposIncidencia: "tipos-incidencia",
 };
 
 const CLAVES = Object.keys(RUTA_CATALOGO) as ClaveCatalogo[];
@@ -242,7 +283,7 @@ function fuenteApi(): FuenteDatos {
     marcarCobrado: (id) => accion(id, "cobrar"),
     autorizarPago: (id) => accion(id, "autorizar-pago"),
     marcarPagado: (id, referencia) => accion(id, "pagar", { referencia }),
-    liquidar: (id) => accion(id, "liquidar"),
+    liquidar: (id, datos) => accion(id, "liquidar", datos),
 
     crearCatalogo: async (clave, item) => {
       await peticion(`/api/v1/catalogos/${RUTA_CATALOGO[clave]}`, {
@@ -276,6 +317,15 @@ function fuenteApi(): FuenteDatos {
         throw error;
       }
     },
+
+    listarIncidencias: (filtro) => {
+      const qs = new URLSearchParams(
+        Object.entries(filtro ?? {}).filter(([, v]) => v) as [string, string][],
+      ).toString();
+      return peticion<IncidenciaViaje[]>(`/api/v1/incidencias${qs ? `?${qs}` : ""}`);
+    },
+    crearIncidencia: (datos) =>
+      peticion<IncidenciaViaje>("/api/v1/incidencias", { metodo: "POST", cuerpo: datos }),
 
     listarUsuarios: () => peticion<Usuario[]>("/api/v1/usuarios"),
     permisosPorRol: () =>
@@ -408,6 +458,24 @@ function aApi(v: Omit<Viaje, "id" | "folio" | "cartaPorte">): Record<string, unk
 // ============================================
 
 const CLAVE_DEMO = "roundtrip-tms:v7";
+const CLAVE_DEMO_INCIDENCIAS = "roundtrip-tms:incidencias";
+
+function leerIncidenciasDemo(): IncidenciaViaje[] {
+  try {
+    const raw = window.localStorage.getItem(CLAVE_DEMO_INCIDENCIAS);
+    return raw ? (JSON.parse(raw) as IncidenciaViaje[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function guardarIncidenciasDemo(lista: IncidenciaViaje[]) {
+  try {
+    window.localStorage.setItem(CLAVE_DEMO_INCIDENCIAS, JSON.stringify(lista));
+  } catch {
+    // ignorar cuota / modo privado
+  }
+}
 
 function fuenteDemo(): FuenteDatos {
   const inicial = (): Datos => ({
@@ -422,6 +490,7 @@ function fuenteDemo(): FuenteDatos {
     tiposMercancia: tiposMercanciaSeed as unknown as RegistroCatalogo[],
     rutas: rutasSeed as unknown as RegistroCatalogo[],
     tarifas: tarifasSeed as unknown as RegistroCatalogo[],
+    tiposIncidencia: tiposIncidenciaSeed as unknown as RegistroCatalogo[],
   });
 
   let datos: Datos = inicial();
@@ -577,10 +646,18 @@ function fuenteDemo(): FuenteDatos {
         pago: { estado: "pagado", referencia, fechaPago: hoy() },
       })),
 
-    liquidar: async (id) =>
+    liquidar: async (id, datos) =>
       editar(id, (v) => ({
         ...v,
-        liquidacion: { estado: "liquidado", fecha: hoy() },
+        liquidacion: {
+          estado: "liquidado",
+          fecha: hoy(),
+          combustible: datos.combustible ?? 0,
+          casetas: datos.casetas ?? 0,
+          gastosExtra: datos.gastosExtra ?? 0,
+          gastosExtraDetalle: datos.gastosExtraDetalle || null,
+          evidencias: datos.evidencias ?? false,
+        },
       })),
 
     crearCatalogo: async (clave, item) => {
@@ -625,6 +702,38 @@ function fuenteDemo(): FuenteDatos {
       return { desactivado: false, usos: 0 };
     },
 
+    listarIncidencias: async (filtro) => {
+      let lista = leerIncidenciasDemo();
+      if (filtro?.conductorId) {
+        lista = lista.filter((i) => i.conductorId === filtro.conductorId);
+      }
+      if (filtro?.servicioId) {
+        lista = lista.filter((i) => i.servicioId === filtro.servicioId);
+      }
+      return lista;
+    },
+    crearIncidencia: async (nueva) => {
+      const tipo = datos.tiposIncidencia.find((t) => t.id === nueva.tipoId);
+      const servicio = nueva.servicioId
+        ? datos.viajes.find((v) => v.id === nueva.servicioId)
+        : undefined;
+      const incidencia: IncidenciaViaje = {
+        id: crypto.randomUUID(),
+        conductorId: nueva.conductorId ?? null,
+        operador: nueva.operadorNombre ?? "",
+        tipoId: nueva.tipoId,
+        tipo: (tipo?.nombre as string) ?? "",
+        servicioId: nueva.servicioId ?? null,
+        folio: servicio?.folio ?? null,
+        descripcion: nueva.descripcion ?? null,
+        creadoPor: "demo",
+        createdAt: new Date().toISOString(),
+      };
+      const lista = [incidencia, ...leerIncidenciasDemo()];
+      guardarIncidenciasDemo(lista);
+      return incidencia;
+    },
+
     // La demostración corre sin sesión ni backend: no hay usuarios que
     // administrar, y fingirlos daría una falsa sensación de control.
     listarUsuarios: async () => [],
@@ -657,6 +766,9 @@ const CAMPO_EN_VIAJE: Record<ClaveCatalogo, keyof Viaje> = {
   // El servicio no guarda de qué tarifa salió su importe: lo copia al alta.
   // Sin columna que consultar, una tarifa nunca cuenta como "en uso".
   tarifas: "id",
+  // Las incidencias no viven en el servicio: nunca hay "usos" que impidan
+  // borrar un tipo de incidencia.
+  tiposIncidencia: "id",
 };
 
 export function crearFuente(): FuenteDatos {

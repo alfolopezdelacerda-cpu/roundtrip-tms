@@ -10,6 +10,7 @@ import { UsuariosModule } from './modules/usuarios/usuarios.module';
 import { CatalogosModule } from './modules/catalogos/catalogos.module';
 import { ServiciosModule } from './modules/servicios/servicios.module';
 import { SatModule } from './modules/sat/sat.module';
+import { IncidenciasModule } from './modules/incidencias/incidencias.module';
 import { EncryptionModule } from './security/encryption/encryption.module';
 import { HealthController } from './common/health.controller';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
@@ -18,6 +19,7 @@ import { TokenBlacklist } from './modules/auth/entities/token-blacklist.entity';
 import { ENTIDADES_TRANSPORTES } from './database/entities/transportes.entities';
 import { ENTIDADES_CATALOGOS } from './database/entities/catalogos.entities';
 import { Servicio } from './database/entities/servicio.entity';
+import { Incidencia } from './database/entities/incidencia.entity';
 import { CartaPorte } from './modules/sat/entities/carta-porte.entity';
 
 /**
@@ -29,15 +31,17 @@ import { CartaPorte } from './modules/sat/entities/carta-porte.entity';
  * el de AuthModule— resuelve ahí.
  */
 
-const esProduccion = process.env.NODE_ENV === 'production';
-
 function opcionesBase(config: ConfigService, url: string | undefined): TypeOrmModuleOptions {
   return {
     type: 'postgres',
     url,
-    // `synchronize` jamás en producción: las migraciones son la única vía de
-    // cambio de esquema.
-    synchronize: !esProduccion && config.get<string>('DB_SYNCHRONIZE') === 'true',
+    // No hay migraciones todavía (ver README): `DB_SYNCHRONIZE=true` es hoy
+    // la única vía de aplicar el esquema, incluso en producción. Se deja al
+    // control explícito del operador vía variable de entorno — enciéndela,
+    // redeploy, confirma, apágala — en vez de bloquearla siempre y no tener
+    // ninguna forma de crear una tabla nueva en un backend serverless donde
+    // nadie puede entrar a correr el CLI de TypeORM a mano.
+    synchronize: config.get<string>('DB_SYNCHRONIZE') === 'true',
     logging: config.get<string>('DB_LOGGING') === 'true',
     ssl: config.get<string>('DB_SSL') === 'true' ? { rejectUnauthorized: false } : false,
     autoLoadEntities: false,
@@ -81,6 +85,7 @@ function opcionesBase(config: ConfigService, url: string | undefined): TypeOrmMo
           ...ENTIDADES_TRANSPORTES,
           ...ENTIDADES_CATALOGOS,
           Servicio,
+          Incidencia,
           CartaPorte,
         ],
         migrations: [__dirname + '/database/migrations/transportes/*.{ts,js}'],
@@ -117,6 +122,7 @@ function opcionesBase(config: ConfigService, url: string | undefined): TypeOrmMo
     CatalogosModule,
     ServiciosModule,
     SatModule,
+    IncidenciasModule,
   ],
   controllers: [HealthController],
   providers: [

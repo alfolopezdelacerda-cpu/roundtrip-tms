@@ -117,7 +117,15 @@ export default function NuevoViaje() {
           diasCredito: cliente?.diasCredito ?? 30,
         },
         pago: { estado: "pendiente", referencia: null, fechaPago: null },
-        liquidacion: { estado: "pendiente", fecha: null },
+        liquidacion: {
+          estado: "pendiente",
+          fecha: null,
+          combustible: 0,
+          casetas: 0,
+          gastosExtra: 0,
+          gastosExtraDetalle: null,
+          evidencias: false,
+        },
         monitoreo: {
           avance: 0,
           ubicacion: form.origen.trim(),
@@ -170,7 +178,7 @@ export default function NuevoViaje() {
                 <option value="">Seleccionar cliente</option>
                 {activos(clientes).map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.nombre} ({c.diasCredito} días de crédito)
+                    {c.nombre}
                   </option>
                 ))}
               </select>
